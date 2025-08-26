@@ -1,0 +1,20 @@
+{
+  "name": "shop-inventory-system",
+  "version": "1.0.0",
+  "description": "Comprehensive shop management system with inventory, POS, and invoicing",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run backend:dev\" \"npm run frontend:dev\"",
+    "backend:dev": "cd backend && npm run start:dev",
+    "frontend:dev": "cd frontend && npm start",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "build": "cd backend && npm run build && cd ../frontend && npm run build",
+    "test": "cd backend && npm run test && cd ../frontend && npm run test"
+  },
+  "keywords": ["shop", "inventory", "pos", "management", "retail"],
+  "author": "Shop Inventory Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
