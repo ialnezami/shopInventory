@@ -6,7 +6,7 @@ import { FormsModule } from '@angular/forms';
 @Component({
   selector: 'app-products-list',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, FormsModule],
   template: `
     <div class="container-fluid">
       <!-- Page Header -->
