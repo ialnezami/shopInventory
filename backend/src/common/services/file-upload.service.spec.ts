@@ -45,6 +45,9 @@ describe('FileUploadService', () => {
 
   describe('uploadFile', () => {
     it('should upload a valid file successfully', async () => {
+      // Mock path.extname to return a valid extension
+      (path.extname as jest.Mock).mockReturnValue('.jpg');
+      
       // Mock fs.existsSync to return false (directory doesn't exist)
       (fs.existsSync as jest.Mock).mockReturnValue(false);
       
@@ -71,6 +74,9 @@ describe('FileUploadService', () => {
         originalname: 'test.txt',
       };
 
+      // Mock path.extname to return .txt
+      (path.extname as jest.Mock).mockReturnValue('.txt');
+
       await expect(service.uploadFile(invalidFile as any)).rejects.toThrow(
         BadRequestException,
       );
@@ -81,6 +87,9 @@ describe('FileUploadService', () => {
         ...mockFile,
         size: 10 * 1024 * 1024, // 10MB
       };
+
+      // Mock path.extname to return .jpg
+      (path.extname as jest.Mock).mockReturnValue('.jpg');
 
       await expect(service.uploadFile(largeFile as any)).rejects.toThrow(
         BadRequestException,
@@ -100,6 +109,7 @@ describe('FileUploadService', () => {
 
     it('should handle file not found gracefully', async () => {
       (fs.existsSync as jest.Mock).mockReturnValue(false);
+      (path.join as jest.Mock).mockReturnValue('/test/path');
 
       await expect(service.deleteFile('non-existent.jpg')).resolves.not.toThrow();
       expect(fs.unlinkSync).not.toHaveBeenCalled();
