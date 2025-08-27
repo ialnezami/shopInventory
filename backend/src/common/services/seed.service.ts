@@ -5,6 +5,7 @@ import { Product, ProductDocument } from '../../modules/products/schemas/product
 import { User, UserDocument } from '../../modules/auth/schemas/user.schema';
 import { Sale, SaleDocument } from '../../modules/sales/schemas/sale.schema';
 import { Customer, CustomerDocument } from '../../modules/customers/schemas/customer.schema';
+import { Invoice, InvoiceDocument } from '../../modules/invoices/schemas/invoice.schema';
 
 @Injectable()
 export class SeedService {
@@ -15,6 +16,7 @@ export class SeedService {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Sale.name) private saleModel: Model<SaleDocument>,
     @InjectModel(Customer.name) private customerModel: Model<CustomerDocument>,
+    @InjectModel(Invoice.name) private invoiceModel: Model<InvoiceDocument>,
   ) {}
 
   async seedAll() {
@@ -25,6 +27,7 @@ export class SeedService {
       await this.seedProducts();
       await this.seedCustomers();
       await this.seedSales();
+      await this.seedInvoices();
       
       this.logger.log('✅ Database seeding completed successfully!');
     } catch (error) {
@@ -357,10 +360,96 @@ export class SeedService {
     }
   }
 
+  private async seedInvoices() {
+    // Get sample sales and users for invoices
+    const sales = await this.saleModel.find().limit(2);
+    const users = await this.userModel.find({ role: { $in: ['admin', 'manager'] } }).limit(1);
+
+    if (sales.length === 0 || users.length === 0) {
+      this.logger.warn('⚠️ Skipping invoice seeding - insufficient sales or users');
+      return;
+    }
+
+    const invoices = [
+      {
+        invoiceNumber: 'INV-202501-001',
+        sale: sales[0]._id,
+        customer: sales[0].customer,
+        issuedBy: users[0]._id,
+        items: [
+          {
+            product: sales[0].items[0].product,
+            quantity: sales[0].items[0].quantity,
+            unitPrice: sales[0].items[0].unitPrice,
+            discount: sales[0].items[0].discount,
+            total: sales[0].items[0].total,
+            description: 'iPhone 15 Pro - 128GB',
+          },
+        ],
+        totals: {
+          subtotal: sales[0].totals.subtotal,
+          tax: sales[0].totals.tax,
+          discount: sales[0].totals.discount,
+          total: sales[0].totals.total,
+          taxRate: 0.1,
+        },
+        payment: {
+          method: sales[0].payment.method,
+          status: 'paid',
+          paidAmount: sales[0].payment.amount,
+          paidDate: new Date(),
+          reference: sales[0].payment.reference,
+        },
+        dates: {
+          dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+          issueDate: new Date(),
+          terms: 'Net 30',
+        },
+        company: {
+          companyName: 'TechStore Pro',
+          address: {
+            street: '123 Tech Street',
+            city: 'San Francisco',
+            state: 'CA',
+            zipCode: '94105',
+            country: 'USA',
+          },
+          phone: '+1-555-TECH',
+          email: 'info@techstorepro.com',
+          website: 'www.techstorepro.com',
+          logo: '',
+        },
+        addresses: {
+          billingAddress: {
+            street: '123 Main Street',
+            city: 'New York',
+            state: 'NY',
+            zipCode: '10001',
+            country: 'USA',
+          },
+        },
+        notes: 'Thank you for your purchase!',
+        terms: 'Payment due within 30 days. Late payments subject to 1.5% monthly interest.',
+        status: 'generated',
+        pdfPath: '',
+        isEmailSent: false,
+      },
+    ];
+
+    for (const invoiceData of invoices) {
+      const existingInvoice = await this.invoiceModel.findOne({ invoiceNumber: invoiceData.invoiceNumber });
+      if (!existingInvoice) {
+        await this.invoiceModel.create(invoiceData);
+        this.logger.log(`📄 Created invoice: ${invoiceData.invoiceNumber}`);
+      }
+    }
+  }
+
   async clearAll() {
     try {
       this.logger.log('🧹 Starting database clearing...');
       
+      await this.invoiceModel.deleteMany({});
       await this.saleModel.deleteMany({});
       await this.customerModel.deleteMany({});
       await this.productModel.deleteMany({});

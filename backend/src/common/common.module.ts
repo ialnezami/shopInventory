@@ -9,6 +9,7 @@ import { Product, ProductSchema } from '../modules/products/schemas/product.sche
 import { User, UserSchema } from '../modules/auth/schemas/user.schema';
 import { Sale, SaleSchema } from '../modules/sales/schemas/sale.schema';
 import { Customer, CustomerSchema } from '../modules/customers/schemas/customer.schema';
+import { Invoice, InvoiceSchema } from '../modules/invoices/schemas/invoice.schema';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { Customer, CustomerSchema } from '../modules/customers/schemas/customer.
       { name: User.name, schema: UserSchema },
       { name: Sale.name, schema: SaleSchema },
       { name: Customer.name, schema: CustomerSchema },
+      { name: Invoice.name, schema: InvoiceSchema },
     ]),
   ],
   providers: [SeedService, FileUploadService],
