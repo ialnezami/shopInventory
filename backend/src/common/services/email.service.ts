@@ -38,7 +38,7 @@ export class EmailService {
 
   private async initializeTransporter() {
     try {
-      this.transporter = nodemailer.createTransporter({
+      this.transporter = nodemailer.createTransport({
         host: this.configService.get('email.host'),
         port: this.configService.get('email.port'),
         secure: this.configService.get('email.secure'),
@@ -157,7 +157,7 @@ export class EmailService {
   }
 
   private generateInvoiceEmailTemplate(data: InvoiceEmailData): string {
-    const { customerName, companyName, invoiceNumber, total, dueDate, company } = data;
+    const { customerName, companyName, invoiceNumber, total, dueDate } = data;
     const formattedTotal = new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
@@ -192,9 +192,9 @@ export class EmailService {
         <div class="container">
           <div class="header">
             <div class="company-name">${companyName}</div>
-            <div>${company.address}</div>
-            <div>Phone: ${company.phone} | Email: ${company.email}</div>
-            <div>Website: ${company.website}</div>
+            <div>123 Tech Street, San Francisco, CA 94105</div>
+            <div>Phone: +1-555-TECH | Email: info@techstorepro.com</div>
+            <div>Website: www.techstorepro.com</div>
           </div>
 
           <div class="invoice-details">
@@ -212,7 +212,7 @@ export class EmailService {
 
           <div class="footer">
             <p>Thank you for choosing ${companyName}!</p>
-            <p>For support, contact us at ${company.email} or call ${company.phone}</p>
+            <p>For support, contact us at info@techstorepro.com or call +1-555-TECH</p>
             <p style="font-size: 12px; color: #6c757d;">
               This is an automated email. Please do not reply directly to this message.
             </p>
