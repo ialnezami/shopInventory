@@ -60,7 +60,10 @@ describe('FileUploadController', () => {
     });
 
     it('should throw error when no file provided', async () => {
-      await expect(controller.uploadImage(undefined)).rejects.toThrow(
+      // Reset the mock to ensure it's not called
+      mockFileUploadService.uploadFile.mockClear();
+      
+      await expect(controller.uploadImage(undefined as any)).rejects.toThrow(
         BadRequestException,
       );
       expect(fileUploadService.uploadFile).not.toHaveBeenCalled();
