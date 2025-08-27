@@ -1,0 +1,98 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { getModelToken } from '@nestjs/mongoose';
+import { SeedService } from './seed.service';
+import { Product } from '../../modules/products/schemas/product.schema';
+import { User } from '../../modules/auth/schemas/user.schema';
+import { Sale } from '../../modules/sales/schemas/sale.schema';
+
+describe('SeedService', () => {
+  let service: SeedService;
+  let productModel: any;
+  let userModel: any;
+  let saleModel: any;
+
+  const mockProductModel = {
+    findOne: jest.fn(),
+    create: jest.fn(),
+    deleteMany: jest.fn(),
+  };
+
+  const mockUserModel = {
+    findOne: jest.fn(),
+    create: jest.fn(),
+    deleteMany: jest.fn(),
+  };
+
+  const mockSaleModel = {
+    findOne: jest.fn(),
+    create: jest.fn(),
+    deleteMany: jest.fn(),
+  };
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        SeedService,
+        {
+          provide: getModelToken(Product.name),
+          useValue: mockProductModel,
+        },
+        {
+          provide: getModelToken(User.name),
+          useValue: mockUserModel,
+        },
+        {
+          provide: getModelToken(Sale.name),
+          useValue: mockSaleModel,
+        },
+      ],
+    }).compile();
+
+    service = module.get<SeedService>(SeedService);
+    productModel = module.get(getModelToken(Product.name));
+    userModel = module.get(getModelToken(User.name));
+    saleModel = module.get(getModelToken(Sale.name));
+  });
+
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+
+  describe('seedAll', () => {
+    it('should seed all data successfully', async () => {
+      // Mock that no existing data exists
+      mockUserModel.findOne.mockResolvedValue(null);
+      mockProductModel.findOne.mockResolvedValue(null);
+      mockSaleModel.findOne.mockResolvedValue(null);
+
+      // Mock successful creation
+      mockUserModel.create.mockResolvedValue({});
+      mockProductModel.create.mockResolvedValue({});
+      mockSaleModel.create.mockResolvedValue({});
+
+      await expect(service.seedAll()).resolves.not.toThrow();
+    });
+
+    it('should handle errors during seeding', async () => {
+      mockUserModel.findOne.mockRejectedValue(new Error('Database error'));
+
+      await expect(service.seedAll()).rejects.toThrow('Database error');
+    });
+  });
+
+  describe('clearAll', () => {
+    it('should clear all data successfully', async () => {
+      mockSaleModel.deleteMany.mockResolvedValue({});
+      mockProductModel.deleteMany.mockResolvedValue({});
+      mockUserModel.deleteMany.mockResolvedValue({});
+
+      await expect(service.clearAll()).resolves.not.toThrow();
+    });
+
+    it('should handle errors during clearing', async () => {
+      mockSaleModel.deleteMany.mockRejectedValue(new Error('Clear error'));
+
+      await expect(service.clearAll()).rejects.toThrow('Clear error');
+    });
+  });
+});
