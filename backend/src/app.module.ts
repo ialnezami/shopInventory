@@ -1,6 +1,9 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { databaseConfig } from './config/database.config';
+import { CommonModule } from './common/common.module';
+import { StaticFilesMiddleware } from './common/middleware/static-files.middleware';
 import { AuthModule } from './modules/auth/auth.module';
 import { ProductsModule } from './modules/products/products.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
@@ -13,8 +16,12 @@ import { ReportsModule } from './modules/reports/reports.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: '.env',
     }),
-    MongooseModule.forRoot(process.env.MONGODB_URI || 'mongodb://localhost:27017/shop-inventory'),
+    MongooseModule.forRootAsync({
+      useFactory: () => databaseConfig,
+    }),
+    CommonModule,
     AuthModule,
     ProductsModule,
     InventoryModule,
@@ -24,4 +31,10 @@ import { ReportsModule } from './modules/reports/reports.module';
     ReportsModule,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(StaticFilesMiddleware)
+      .forRoutes('*');
+  }
+}
