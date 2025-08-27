@@ -8,6 +8,7 @@ import { FileUploadController } from './controllers/file-upload.controller';
 import { Product, ProductSchema } from '../modules/products/schemas/product.schema';
 import { User, UserSchema } from '../modules/auth/schemas/user.schema';
 import { Sale, SaleSchema } from '../modules/sales/schemas/sale.schema';
+import { Customer, CustomerSchema } from '../modules/customers/schemas/customer.schema';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { Sale, SaleSchema } from '../modules/sales/schemas/sale.schema';
       { name: Product.name, schema: ProductSchema },
       { name: User.name, schema: UserSchema },
       { name: Sale.name, schema: SaleSchema },
+      { name: Customer.name, schema: CustomerSchema },
     ]),
   ],
   providers: [SeedService, FileUploadService],

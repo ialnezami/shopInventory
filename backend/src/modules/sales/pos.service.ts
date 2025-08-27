@@ -58,7 +58,7 @@ export class PosService {
     }
 
     return {
-      id: product._id,
+      id: (product as any)._id,
       name: product.name,
       sku: product.sku,
       price: product.price.selling,
@@ -69,14 +69,14 @@ export class PosService {
   }
 
   async searchProductsForSale(query: string): Promise<any[]> {
-    const products = await this.productsService.search({
+    const products = await this.productsService.findAll({
       search: query,
       inStock: true,
       limit: 10
     });
 
     return products.map(product => ({
-      id: product._id,
+      id: (product as any)._id,
       name: product.name,
       sku: product.sku,
       price: product.price.selling,
@@ -90,7 +90,7 @@ export class PosService {
     const customer = await this.customersService.findOne(customerId);
     
     return {
-      id: customer._id,
+      id: (customer as any)._id,
       firstName: customer.firstName,
       lastName: customer.lastName,
       email: customer.email,
@@ -108,7 +108,7 @@ export class PosService {
     });
 
     return customers.map(customer => ({
-      id: customer._id,
+      id: (customer as any)._id,
       firstName: customer.firstName,
       lastName: customer.lastName,
       email: customer.email,
@@ -146,7 +146,7 @@ export class PosService {
     // Hourly breakdown
     const hourlySales = new Array(24).fill(0);
     todaySales.forEach(sale => {
-      const hour = sale.createdAt.getHours();
+      const hour = (sale as any).createdAt.getHours();
       hourlySales[hour] += sale.totals.total;
     });
 

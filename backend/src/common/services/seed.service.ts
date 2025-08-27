@@ -4,6 +4,7 @@ import { Model } from 'mongoose';
 import { Product, ProductDocument } from '../../modules/products/schemas/product.schema';
 import { User, UserDocument } from '../../modules/auth/schemas/user.schema';
 import { Sale, SaleDocument } from '../../modules/sales/schemas/sale.schema';
+import { Customer, CustomerDocument } from '../../modules/customers/schemas/customer.schema';
 
 @Injectable()
 export class SeedService {
@@ -13,6 +14,7 @@ export class SeedService {
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Sale.name) private saleModel: Model<SaleDocument>,
+    @InjectModel(Customer.name) private customerModel: Model<CustomerDocument>,
   ) {}
 
   async seedAll() {
@@ -21,6 +23,7 @@ export class SeedService {
       
       await this.seedUsers();
       await this.seedProducts();
+      await this.seedCustomers();
       await this.seedSales();
       
       this.logger.log('✅ Database seeding completed successfully!');
@@ -100,7 +103,7 @@ export class SeedService {
       {
         name: 'Samsung Galaxy S24',
         sku: 'SAMS24-256',
-        description: 'Android flagship with AI features',
+        description: 'Premium Android smartphone with AI features',
         category: 'Electronics',
         subcategory: 'Smartphones',
         price: {
@@ -114,23 +117,23 @@ export class SeedService {
           location: 'Main Store',
         },
         variants: [
-          { name: 'Color', value: 'Black', priceModifier: 0 },
+          { name: 'Color', value: 'Phantom Black', priceModifier: 0 },
           { name: 'Storage', value: '256GB', priceModifier: 50 },
         ],
         images: [],
         weight: 0.168,
-        dimensions: { length: 14.7, width: 7.1, height: 0.8 },
+        dimensions: { length: 14.7, width: 7.0, height: 0.7 },
         isActive: true,
       },
       {
-        name: 'MacBook Air M2',
-        sku: 'MBA-M2-512',
-        description: 'Lightweight laptop with M2 chip',
+        name: 'MacBook Pro 14"',
+        sku: 'MBP14-M2',
+        description: 'Professional laptop with M2 chip',
         category: 'Electronics',
         subcategory: 'Laptops',
         price: {
-          cost: 1000,
-          selling: 1299,
+          cost: 1800,
+          selling: 2199,
           currency: 'USD',
         },
         inventory: {
@@ -143,8 +146,8 @@ export class SeedService {
           { name: 'Storage', value: '512GB', priceModifier: 200 },
         ],
         images: [],
-        weight: 1.24,
-        dimensions: { length: 30.4, width: 21.5, height: 1.1 },
+        weight: 1.6,
+        dimensions: { length: 31.3, width: 22.1, height: 1.6 },
         isActive: true,
       },
     ];
@@ -158,39 +161,190 @@ export class SeedService {
     }
   }
 
+  private async seedCustomers() {
+    const customers = [
+      {
+        firstName: 'John',
+        lastName: 'Doe',
+        email: 'john.doe@email.com',
+        phone: '+1-555-0101',
+        address: {
+          street: '123 Main Street',
+          city: 'New York',
+          state: 'NY',
+          zipCode: '10001',
+          country: 'USA',
+        },
+        businessInfo: {
+          type: 'individual',
+        },
+        statistics: {
+          totalSpent: 0,
+          totalOrders: 0,
+          averageOrderValue: 0,
+        },
+        loyalty: {
+          loyaltyPoints: 0,
+          tier: 'bronze',
+          memberSince: new Date(),
+        },
+        metadata: {
+          preferences: ['Electronics', 'Gaming'],
+          notes: 'Regular customer, prefers premium products',
+          tags: ['premium', 'tech-savvy'],
+        },
+        isActive: true,
+      },
+      {
+        firstName: 'Jane',
+        lastName: 'Smith',
+        email: 'jane.smith@email.com',
+        phone: '+1-555-0102',
+        address: {
+          street: '456 Oak Avenue',
+          city: 'Los Angeles',
+          state: 'CA',
+          zipCode: '90210',
+          country: 'USA',
+        },
+        businessInfo: {
+          type: 'business',
+          companyName: 'Tech Solutions Inc.',
+          taxId: 'TAX123456',
+          website: 'www.techsolutions.com',
+        },
+        statistics: {
+          totalSpent: 0,
+          totalOrders: 0,
+          averageOrderValue: 0,
+        },
+        loyalty: {
+          loyaltyPoints: 0,
+          tier: 'bronze',
+          memberSince: new Date(),
+        },
+        metadata: {
+          preferences: ['Business Software', 'Hardware'],
+          notes: 'Business customer, bulk orders',
+          tags: ['business', 'bulk-orders'],
+        },
+        isActive: true,
+      },
+      {
+        firstName: 'Mike',
+        lastName: 'Johnson',
+        email: 'mike.johnson@email.com',
+        phone: '+1-555-0103',
+        address: {
+          street: '789 Pine Road',
+          city: 'Chicago',
+          state: 'IL',
+          zipCode: '60601',
+          country: 'USA',
+        },
+        businessInfo: {
+          type: 'individual',
+        },
+        statistics: {
+          totalSpent: 0,
+          totalOrders: 0,
+          averageOrderValue: 0,
+        },
+        loyalty: {
+          loyaltyPoints: 0,
+          tier: 'bronze',
+          memberSince: new Date(),
+        },
+        metadata: {
+          preferences: ['Mobile Accessories', 'Audio'],
+          notes: 'Student customer, budget-conscious',
+          tags: ['student', 'budget'],
+        },
+        isActive: true,
+      },
+    ];
+
+    for (const customerData of customers) {
+      const existingCustomer = await this.customerModel.findOne({ email: customerData.email });
+      if (!existingCustomer) {
+        await this.customerModel.create(customerData);
+        this.logger.log(`👥 Created customer: ${customerData.firstName} ${customerData.lastName}`);
+      }
+    }
+  }
+
   private async seedSales() {
-    // Get sample products and users for sales
+    // Get sample products and customers for sales
     const products = await this.productModel.find().limit(3);
-    const users = await this.userModel.find({ role: 'cashier' }).limit(1);
-    
-    if (products.length === 0 || users.length === 0) {
-      this.logger.warn('⚠️ No products or users found for sales seeding');
+    const customers = await this.customerModel.find().limit(2);
+    const users = await this.userModel.find({ role: { $in: ['manager', 'cashier'] } }).limit(2);
+
+    if (products.length === 0 || customers.length === 0 || users.length === 0) {
+      this.logger.warn('⚠️ Skipping sales seeding - insufficient products, customers, or users');
       return;
     }
 
     const sales = [
       {
-        transactionNumber: 'SALE-001',
-        customer: {
-          name: 'John Doe',
-          email: 'john.doe@email.com',
-          phone: '+1234567890',
-        },
+        transactionNumber: 'TXN20250101001',
+        customer: customers[0]._id,
         items: [
           {
             product: products[0]._id,
             quantity: 1,
             unitPrice: products[0].price.selling,
-            totalPrice: products[0].price.selling,
+            discount: 0,
+            total: products[0].price.selling,
           },
         ],
-        subtotal: products[0].price.selling,
-        tax: products[0].price.selling * 0.08,
-        total: products[0].price.selling * 1.08,
-        paymentMethod: 'credit_card',
+        payment: {
+          method: 'card',
+          amount: products[0].price.selling,
+          status: 'completed',
+          reference: 'CARD123456',
+          cardLast4: '1234',
+          cardBrand: 'Visa',
+        },
+        totals: {
+          subtotal: products[0].price.selling,
+          tax: products[0].price.selling * 0.1,
+          discount: 0,
+          total: products[0].price.selling * 1.1,
+        },
         status: 'completed',
-        cashier: users[0]._id,
+        staff: users[0]._id,
         notes: 'First sale of the day',
+        invoiceNumber: 'INV001',
+        isInvoiceGenerated: false,
+      },
+      {
+        transactionNumber: 'TXN20250101002',
+        customer: customers[1]._id,
+        items: [
+          {
+            product: products[1]._id,
+            quantity: 2,
+            unitPrice: products[1].price.selling,
+            discount: 50,
+            total: (products[1].price.selling * 2) - 50,
+          },
+        ],
+        payment: {
+          method: 'cash',
+          amount: (products[1].price.selling * 2) - 50,
+          status: 'completed',
+        },
+        totals: {
+          subtotal: products[1].price.selling * 2,
+          tax: (products[1].price.selling * 2) * 0.1,
+          discount: 50,
+          total: ((products[1].price.selling * 2) * 1.1) - 50,
+        },
+        status: 'completed',
+        staff: users[1]._id,
+        notes: 'Bulk order with discount',
+        invoiceNumber: 'INV002',
+        isInvoiceGenerated: false,
       },
     ];
 
@@ -205,15 +359,16 @@ export class SeedService {
 
   async clearAll() {
     try {
-      this.logger.log('🗑️ Clearing all data...');
+      this.logger.log('🧹 Starting database clearing...');
       
       await this.saleModel.deleteMany({});
+      await this.customerModel.deleteMany({});
       await this.productModel.deleteMany({});
       await this.userModel.deleteMany({});
       
-      this.logger.log('✅ All data cleared successfully!');
+      this.logger.log('✅ Database clearing completed successfully!');
     } catch (error) {
-      this.logger.error('❌ Data clearing failed:', error);
+      this.logger.error('❌ Database clearing failed:', error);
       throw error;
     }
   }
