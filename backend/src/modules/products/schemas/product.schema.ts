@@ -68,7 +68,13 @@ export class Product {
   @Prop()
   weight: number;
 
-  @Prop()
+  @Prop({
+    type: {
+      length: { type: Number },
+      width: { type: Number },
+      height: { type: Number }
+    }
+  })
   dimensions: {
     length: number;
     width: number;

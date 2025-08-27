@@ -15,18 +15,21 @@ describe('SeedService', () => {
     findOne: jest.fn(),
     create: jest.fn(),
     deleteMany: jest.fn(),
+    find: jest.fn(),
   };
 
   const mockUserModel = {
     findOne: jest.fn(),
     create: jest.fn(),
     deleteMany: jest.fn(),
+    find: jest.fn(),
   };
 
   const mockSaleModel = {
     findOne: jest.fn(),
     create: jest.fn(),
     deleteMany: jest.fn(),
+    find: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -69,6 +72,14 @@ describe('SeedService', () => {
       mockUserModel.create.mockResolvedValue({});
       mockProductModel.create.mockResolvedValue({});
       mockSaleModel.create.mockResolvedValue({});
+
+      // Mock find methods for sales seeding
+      mockProductModel.find.mockReturnValue({
+        limit: jest.fn().mockResolvedValue([{ _id: 'product1', price: { selling: 100 } }])
+      });
+      mockUserModel.find.mockReturnValue({
+        limit: jest.fn().mockResolvedValue([{ _id: 'user1' }])
+      });
 
       await expect(service.seedAll()).resolves.not.toThrow();
     });

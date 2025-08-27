@@ -111,6 +111,9 @@ describe('FileUploadService', () => {
       (fs.existsSync as jest.Mock).mockReturnValue(false);
       (path.join as jest.Mock).mockReturnValue('/test/path');
 
+      // Clear any previous calls to unlinkSync
+      (fs.unlinkSync as jest.Mock).mockClear();
+
       await expect(service.deleteFile('non-existent.jpg')).resolves.not.toThrow();
       expect(fs.unlinkSync).not.toHaveBeenCalled();
     });
