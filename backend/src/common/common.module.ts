@@ -3,8 +3,10 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule } from '@nestjs/config';
 import { SeedService } from './services/seed.service';
 import { FileUploadService } from './services/file-upload.service';
+import { EmailService } from './services/email.service';
 import { SeedController } from './controllers/seed.controller';
 import { FileUploadController } from './controllers/file-upload.controller';
+import { EmailController } from './controllers/email.controller';
 import { Product, ProductSchema } from '../modules/products/schemas/product.schema';
 import { User, UserSchema } from '../modules/auth/schemas/user.schema';
 import { Sale, SaleSchema } from '../modules/sales/schemas/sale.schema';
@@ -22,8 +24,8 @@ import { Invoice, InvoiceSchema } from '../modules/invoices/schemas/invoice.sche
       { name: Invoice.name, schema: InvoiceSchema },
     ]),
   ],
-  providers: [SeedService, FileUploadService],
-  controllers: [SeedController, FileUploadController],
-  exports: [SeedService, FileUploadService],
+  providers: [SeedService, FileUploadService, EmailService],
+  controllers: [SeedController, FileUploadController, EmailController],
+  exports: [SeedService, FileUploadService, EmailService],
 })
 export class CommonModule {}
