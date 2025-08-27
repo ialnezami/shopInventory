@@ -1,0 +1,112 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: shop-inventory-backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://mongo:27017/shop-inventory
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_USER=${EMAIL_USER}
+      - EMAIL_PASS=${EMAIL_PASS}
+      - EMAIL_FROM=${EMAIL_FROM}
+      - COMPANY_NAME=${COMPANY_NAME}
+      - COMPANY_ADDRESS=${COMPANY_ADDRESS}
+      - COMPANY_PHONE=${COMPANY_PHONE}
+      - COMPANY_WEBSITE=${COMPANY_WEBSITE}
+    volumes:
+      - app_uploads:/app/uploads
+      - app_invoices:/app/invoices
+      - app_logs:/app/logs
+    depends_on:
+      - mongo
+    networks:
+      - shop-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health/live', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  mongo:
+    image: mongo:6.0
+    container_name: shop-inventory-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_ROOT_USERNAME}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD}
+      - MONGO_INITDB_DATABASE=shop-inventory
+    volumes:
+      - mongo_data:/data/db
+      - mongo_logs:/var/log/mongodb
+    networks:
+      - shop-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  nginx:
+    image: nginx:alpine
+    container_name: shop-inventory-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - app_uploads:/var/www/uploads:ro
+      - app_invoices:/var/www/invoices:ro
+    depends_on:
+      - app
+    networks:
+      - shop-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: shop-inventory-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - shop-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  mongo_data:
+    driver: local
+  mongo_logs:
+    driver: local
+  app_uploads:
+    driver: local
+  app_invoices:
+    driver: local
+  app_logs:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  shop-network:
+    driver: bridge
