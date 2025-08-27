@@ -41,6 +41,9 @@ describe('StaticFilesMiddleware', () => {
     // Mock path.join
     (path.join as jest.Mock).mockReturnValue('/test/uploads/test-image.jpg');
     
+    // Mock path.extname to return .jpg
+    (path.extname as jest.Mock).mockReturnValue('.jpg');
+    
     // Mock fs.createReadStream
     const mockStream = {
       pipe: jest.fn().mockReturnThis(),
@@ -107,6 +110,10 @@ describe('StaticFilesMiddleware', () => {
 
       (fs.existsSync as jest.Mock).mockReturnValue(true);
       (path.join as jest.Mock).mockReturnValue('/test' + url);
+      
+      // Mock path.extname based on the test case
+      const extension = url.split('.').pop();
+      (path.extname as jest.Mock).mockReturnValue('.' + extension);
       
       const mockStream = { pipe: jest.fn().mockReturnThis() };
       (fs.createReadStream as jest.Mock).mockReturnValue(mockStream);
