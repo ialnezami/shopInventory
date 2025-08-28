@@ -8,6 +8,7 @@ import { SalesModule } from './modules/sales/sales.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { InvoicesModule } from './modules/invoices/invoices.module';
 import { ProductionModule } from './modules/production/production.module';
+import { ReportingModule } from './modules/reporting/reporting.module';
 import { databaseConfig } from './config/database.config';
 import { StaticFilesMiddleware } from './common/middleware/static-files.middleware';
 
@@ -27,6 +28,7 @@ import { StaticFilesMiddleware } from './common/middleware/static-files.middlewa
     CustomersModule,
     InvoicesModule,
     ProductionModule,
+    ReportingModule,
   ],
 })
 export class AppModule implements NestModule {
