@@ -9,6 +9,11 @@ import { AuthService } from './services/auth.service';
 import { ProductService } from './services/product.service';
 import { CustomerService } from './services/customer.service';
 import { SalesService } from './services/sales.service';
+import { FormValidationService } from './services/form-validation.service';
+import { FormSubmissionService } from './services/form-submission.service';
+import { ToastService } from './services/toast.service';
+import { LoadingService } from './services/loading.service';
+import { ErrorBoundaryService } from './services/error-boundary.service';
 
 // Guards
 import { AuthGuard } from './guards/auth.guard';
@@ -33,12 +38,17 @@ import { ErrorInterceptor } from './interceptors/error.interceptor';
     ProductService,
     CustomerService,
     SalesService,
-    
+    FormValidationService,
+    FormSubmissionService,
+    ToastService,
+    LoadingService,
+    ErrorBoundaryService,
+
     // Guards
     AuthGuard,
     RoleGuard,
     PermissionGuard,
-    
+
     // Interceptors
     {
       provide: HTTP_INTERCEPTORS,
