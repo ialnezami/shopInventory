@@ -1,8 +1,8 @@
 import { Injectable, NestMiddleware, Logger } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
-import * as helmet from 'helmet';
-import * as compression from 'compression';
-import * as rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
+import compression from 'compression';
+import rateLimit from 'express-rate-limit';
 
 @Injectable()
 export class ProductionMiddleware implements NestMiddleware {
