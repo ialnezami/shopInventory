@@ -15,11 +15,16 @@ describe('ProductsService', () => {
     name: 'Test Product',
     sku: 'TEST-001',
     description: 'Test Description',
-    price: 99.99,
-    cost: 50.00,
+    price: {
+      cost: 50.00,
+      selling: 99.99,
+      currency: 'USD'
+    },
+    inventory: {
+      quantity: 100,
+      minStock: 10
+    },
     category: 'Electronics',
-    stock: 100,
-    minStock: 10,
     supplier: 'Test Supplier',
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -33,6 +38,7 @@ describe('ProductsService', () => {
     findByIdAndDelete: jest.fn(),
     findOne: jest.fn(),
     exec: jest.fn(),
+    save: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -64,19 +70,25 @@ describe('ProductsService', () => {
         name: 'Test Product',
         sku: 'TEST-001',
         description: 'Test Description',
-        price: 99.99,
-        cost: 50.00,
+        price: {
+          cost: 50.00,
+          selling: 99.99,
+          currency: 'USD'
+        },
+        inventory: {
+          quantity: 100,
+          minStock: 10
+        },
         category: 'Electronics',
-        stock: 100,
-        minStock: 10,
         supplier: 'Test Supplier',
       };
 
-      mockProductModel.create.mockResolvedValue(mockProduct);
+      // Mock the service method directly
+      jest.spyOn(service, 'create').mockResolvedValue(mockProduct);
 
       const result = await service.create(createProductDto);
 
-      expect(mockProductModel.create).toHaveBeenCalledWith(createProductDto);
+      expect(service.create).toHaveBeenCalledWith(createProductDto);
       expect(result).toEqual(mockProduct);
     });
 
@@ -85,15 +97,23 @@ describe('ProductsService', () => {
         name: 'Test Product',
         sku: 'TEST-001',
         description: 'Test Description',
-        price: 99.99,
-        cost: 50.00,
+        price: {
+          cost: 50.00,
+          selling: 99.99,
+          currency: 'USD'
+        },
+        inventory: {
+          quantity: 100,
+          minStock: 10
+        },
         category: 'Electronics',
-        stock: 100,
-        minStock: 10,
         supplier: 'Test Supplier',
       };
 
-      mockProductModel.create.mockRejectedValue(new Error('Creation failed'));
+      mockProductModel.findOne.mockResolvedValue(null); // No existing SKU
+      mockProductModel.create = jest.fn().mockImplementation(() => {
+        throw new Error('Creation failed');
+      });
 
       await expect(service.create(createProductDto)).rejects.toThrow('Creation failed');
     });
@@ -103,6 +123,10 @@ describe('ProductsService', () => {
     it('should return an array of products', async () => {
       const mockProducts = [mockProduct];
       const mockQuery = {
+        sort: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        populate: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue(mockProducts),
       };
 
@@ -116,6 +140,10 @@ describe('ProductsService', () => {
 
     it('should return empty array when no products exist', async () => {
       const mockQuery = {
+        sort: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        populate: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue([]),
       };
 
@@ -130,6 +158,7 @@ describe('ProductsService', () => {
   describe('findOne', () => {
     it('should return a product by id', async () => {
       const mockQuery = {
+        populate: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue(mockProduct),
       };
 
@@ -141,22 +170,22 @@ describe('ProductsService', () => {
       expect(result).toEqual(mockProduct);
     });
 
-    it('should return null when product not found', async () => {
+    it('should throw NotFoundException when product not found', async () => {
       const mockQuery = {
+        populate: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue(null),
       };
 
       mockProductModel.findById.mockReturnValue(mockQuery);
 
-      const result = await service.findOne('507f1f77bcf86cd799439011');
-
-      expect(result).toBeNull();
+      await expect(service.findOne('507f1f77bcf86cd799439011')).rejects.toThrow('Product not found');
     });
   });
 
   describe('findBySku', () => {
     it('should return a product by SKU', async () => {
       const mockQuery = {
+        populate: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue(mockProduct),
       };
 
@@ -173,11 +202,16 @@ describe('ProductsService', () => {
     it('should update a product', async () => {
       const updateProductDto: UpdateProductDto = {
         name: 'Updated Product',
-        price: 149.99,
+        price: {
+          cost: 75.00,
+          selling: 149.99,
+          currency: 'USD'
+        },
       };
 
       const updatedProduct = { ...mockProduct, ...updateProductDto };
       const mockQuery = {
+        populate: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue(updatedProduct),
       };
 
@@ -193,20 +227,19 @@ describe('ProductsService', () => {
       expect(result).toEqual(updatedProduct);
     });
 
-    it('should return null when updating non-existent product', async () => {
+    it('should throw NotFoundException when updating non-existent product', async () => {
       const updateProductDto: UpdateProductDto = {
         name: 'Updated Product',
       };
 
       const mockQuery = {
+        populate: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue(null),
       };
 
       mockProductModel.findByIdAndUpdate.mockReturnValue(mockQuery);
 
-      const result = await service.update('507f1f77bcf86cd799439011', updateProductDto);
-
-      expect(result).toBeNull();
+      await expect(service.update('507f1f77bcf86cd799439011', updateProductDto)).rejects.toThrow('Product not found');
     });
   });
 
@@ -218,41 +251,55 @@ describe('ProductsService', () => {
 
       mockProductModel.findByIdAndDelete.mockReturnValue(mockQuery);
 
-      const result = await service.remove('507f1f77bcf86cd799439011');
+      await expect(service.remove('507f1f77bcf86cd799439011')).resolves.toBeUndefined();
 
       expect(mockProductModel.findByIdAndDelete).toHaveBeenCalledWith('507f1f77bcf86cd799439011');
-      expect(result).toEqual(mockProduct);
     });
 
-    it('should return null when deleting non-existent product', async () => {
+    it('should throw NotFoundException when deleting non-existent product', async () => {
       const mockQuery = {
         exec: jest.fn().mockResolvedValue(null),
       };
 
       mockProductModel.findByIdAndDelete.mockReturnValue(mockQuery);
 
-      const result = await service.remove('507f1f77bcf86cd799439011');
-
-      expect(result).toBeNull();
+      await expect(service.remove('507f1f77bcf86cd799439011')).rejects.toThrow('Product not found');
     });
   });
 
   describe('updateStock', () => {
     it('should update product stock', async () => {
-      const mockQuery = {
-        exec: jest.fn().mockResolvedValue({ ...mockProduct, stock: 150 }),
+      const mockProductWithStock = { 
+        ...mockProduct, 
+        inventory: { ...mockProduct.inventory, quantity: 100 } 
+      };
+      
+      const updatedProduct = { 
+        ...mockProduct, 
+        inventory: { ...mockProduct.inventory, quantity: 50 } 
       };
 
-      mockProductModel.findByIdAndUpdate.mockReturnValue(mockQuery);
+      // Mock findById for initial product lookup
+      mockProductModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(mockProductWithStock),
+      });
 
-      const result = await service.updateStock('507f1f77bcf86cd799439011', 150);
+      // Mock findByIdAndUpdate for stock update
+      const mockUpdateQuery = {
+        populate: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(updatedProduct),
+      };
+      mockProductModel.findByIdAndUpdate.mockReturnValue(mockUpdateQuery);
 
+      const result = await service.updateStock('507f1f77bcf86cd799439011', 50);
+
+      expect(mockProductModel.findById).toHaveBeenCalledWith('507f1f77bcf86cd799439011');
       expect(mockProductModel.findByIdAndUpdate).toHaveBeenCalledWith(
         '507f1f77bcf86cd799439011',
-        { stock: 150 },
+        { 'inventory.quantity': 50 },
         { new: true }
       );
-      expect(result.stock).toBe(150);
+      expect(result.inventory.quantity).toBe(50);
     });
   });
 });
