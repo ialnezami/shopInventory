@@ -1,15 +1,18 @@
-import { Controller, Post, Body, Get, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, Request, BadRequestException, Logger } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { EmailService } from '../services/email.service';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../modules/auth/guards/roles.guard';
 import { Roles } from '../../modules/auth/decorators/roles.decorator';
+import { InvoiceEmailData, WelcomeEmailData } from '../interfaces/email.interface';
 
 @ApiTags('email')
 @Controller('email')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class EmailController {
+  private readonly logger = new Logger(EmailController.name);
+
   constructor(private readonly emailService: EmailService) {}
 
   @Post('test')
@@ -65,59 +68,74 @@ export class EmailController {
 
   @Post('invoice')
   @Roles('admin', 'manager')
-  @ApiOperation({ summary: 'Send invoice email to customer' })
+  @ApiOperation({ summary: 'Send invoice email' })
   @ApiResponse({ status: 200, description: 'Invoice email sent successfully' })
-  @ApiResponse({ status: 400, description: 'Failed to send invoice email' })
-  async sendInvoiceEmail(@Body() body: { invoiceId: string; customerEmail: string }) {
-    // This would typically fetch the invoice data from the database
-    // For now, we'll create a mock invoice for demonstration
-    const mockInvoice = {
-      _id: body.invoiceId,
-      invoiceNumber: 'INV-TEST-001',
-      totals: { total: 299.99 },
-      dates: { dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) },
-      company: {
-        name: 'TechStore Pro',
-        address: '123 Tech Street, San Francisco, CA 94105',
-        phone: '+1-555-TECH',
-        email: 'info@techstorepro.com',
-        website: 'www.techstorepro.com',
-      },
-    } as any;
+  @ApiResponse({ status: 400, description: 'Invalid invoice data' })
+  async sendInvoiceEmail(@Body() body: any) {
+    try {
+      // Transform the data to match the new interface
+      const invoiceData: InvoiceEmailData = {
+        customerName: body.customerName,
+        customerEmail: body.customerEmail,
+        invoiceNumber: body.invoiceNumber,
+        totalAmount: body.total,
+        dueDate: body.dueDate,
+        items: body.items || [],
+      };
 
-    const invoiceData = {
-      invoice: mockInvoice,
-      customerEmail: body.customerEmail,
-      customerName: 'Test Customer',
-      companyName: 'TechStore Pro',
-      invoiceNumber: 'INV-TEST-001',
-      total: 299.99,
-      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      pdfPath: '', // No PDF for test
-    };
-
-    const success = await this.emailService.sendInvoiceEmail(invoiceData);
-
-    return {
-      success,
-      message: success ? 'Invoice email sent successfully' : 'Failed to send invoice email',
-      timestamp: new Date().toISOString(),
-    };
+      const success = await this.emailService.sendInvoiceEmail(invoiceData);
+      
+      if (success) {
+        return {
+          success: true,
+          message: 'Invoice email sent successfully',
+          timestamp: new Date().toISOString(),
+        };
+      } else {
+        return {
+          success: false,
+          message: 'Failed to send invoice email - email service not available',
+          timestamp: new Date().toISOString(),
+        };
+      }
+    } catch (error) {
+      this.logger.error('Failed to send invoice email:', error);
+      throw new BadRequestException('Failed to send invoice email');
+    }
   }
 
   @Post('welcome')
   @Roles('admin', 'manager')
-  @ApiOperation({ summary: 'Send welcome email to new customer' })
+  @ApiOperation({ summary: 'Send welcome email' })
   @ApiResponse({ status: 200, description: 'Welcome email sent successfully' })
-  @ApiResponse({ status: 400, description: 'Failed to send welcome email' })
-  async sendWelcomeEmail(@Body() body: { customerEmail: string; customerName: string }) {
-    const success = await this.emailService.sendWelcomeEmail(body.customerEmail, body.customerName);
+  @ApiResponse({ status: 400, description: 'Invalid customer data' })
+  async sendWelcomeEmail(@Body() body: any) {
+    try {
+      const welcomeData: WelcomeEmailData = {
+        customerName: body.customerName,
+        customerEmail: body.customerEmail,
+        welcomeMessage: body.welcomeMessage,
+      };
 
-    return {
-      success,
-      message: success ? 'Welcome email sent successfully' : 'Failed to send welcome email',
-      timestamp: new Date().toISOString(),
-    };
+      const success = await this.emailService.sendWelcomeEmail(welcomeData);
+      
+      if (success) {
+        return {
+          success: true,
+          message: 'Welcome email sent successfully',
+          timestamp: new Date().toISOString(),
+        };
+      } else {
+        return {
+          success: false,
+          message: 'Failed to send welcome email - email service not available',
+          timestamp: new Date().toISOString(),
+        };
+      }
+    } catch (error) {
+      this.logger.error('Failed to send welcome email:', error);
+      throw new BadRequestException('Failed to send welcome email');
+    }
   }
 
   @Get('test-connection')

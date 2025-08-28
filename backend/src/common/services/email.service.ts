@@ -87,14 +87,10 @@ export class EmailService {
           user: emailUser,
           pass: emailPass,
         },
-        // Add connection timeout and retry options
+        // Add connection timeout options
         connectionTimeout: 10000, // 10 seconds
         greetingTimeout: 10000,   // 10 seconds
         socketTimeout: 10000,     // 10 seconds
-        // Retry configuration
-        maxConnections: 5,
-        maxMessages: 100,
-        rateLimit: 14, // 14 messages per second
       });
 
       // Test the connection
