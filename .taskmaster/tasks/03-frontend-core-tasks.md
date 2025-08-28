@@ -27,11 +27,11 @@
   - [x] Implement auth service
   - [x] Add error handling
 
-- [ ] **State Management**
-  - [ ] Set up NgRx store
-  - [ ] Create product actions/reducers
-  - [ ] Create auth actions/reducers
-  - [ ] Implement effects
+- [x] **State Management**
+  - [x] Set up NgRx store
+  - [x] Create product actions/reducers
+  - [x] Create auth actions/reducers
+  - [x] Implement effects
 
 #### Component Enhancement
 - [ ] **Form Validation**

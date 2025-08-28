@@ -7,6 +7,8 @@ import { environment } from '../../../environments/environment';
 
 // Reducers
 import { authReducer } from './auth/auth.reducer';
+import { productReducer } from './product/product.reducer';
+import { uiReducer } from './ui/ui.reducer';
 
 // Effects
 import { AuthEffects } from './auth/auth.effects';
@@ -19,6 +21,8 @@ import { AppState } from './app.state';
     // Store configuration
     StoreModule.forRoot<AppState>({
       auth: authReducer,
+      products: productReducer,
+      ui: uiReducer,
       // Add other reducers here as they're implemented
     }, {
       runtimeChecks: {
