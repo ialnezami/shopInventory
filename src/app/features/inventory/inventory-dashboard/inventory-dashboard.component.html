@@ -1,0 +1,614 @@
+<div class="inventory-dashboard">
+  <!-- Header -->
+  <div class="dashboard-header">
+    <h1>Inventory Dashboard</h1>
+    <div class="header-actions">
+      <button class="btn btn-secondary" (click)="refreshData()">
+        <i class="icon">🔄</i>
+        Refresh
+      </button>
+      <button class="btn btn-primary" (click)="exportInventoryData()">
+        <i class="icon">📊</i>
+        Export Data
+      </button>
+    </div>
+  </div>
+
+  <!-- Statistics Cards -->
+  <div class="stats-grid" *ngIf="inventoryStats">
+    <div class="stat-card">
+      <div class="stat-icon">📦</div>
+      <div class="stat-content">
+        <h3>{{ inventoryStats.totalProducts }}</h3>
+        <p>Total Products</p>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon">💰</div>
+      <div class="stat-content">
+        <h3>{{ formatCurrency(inventoryStats.totalValue) }}</h3>
+        <p>Total Value</p>
+      </div>
+    </div>
+
+    <div class="stat-card warning">
+      <div class="stat-icon">⚠️</div>
+      <div class="stat-content">
+        <h3>{{ inventoryStats.lowStockProducts }}</h3>
+        <p>Low Stock</p>
+      </div>
+    </div>
+
+    <div class="stat-card danger">
+      <div class="stat-icon">🚫</div>
+      <div class="stat-content">
+        <h3>{{ inventoryStats.outOfStockProducts }}</h3>
+        <p>Out of Stock</p>
+      </div>
+    </div>
+
+    <div class="stat-card info">
+      <div class="stat-icon">📊</div>
+      <div class="stat-content">
+        <h3>{{ inventoryStats.totalCategories }}</h3>
+        <p>Categories</p>
+      </div>
+    </div>
+
+    <div class="stat-card success">
+      <div class="stat-icon">📈</div>
+      <div class="stat-content">
+        <h3>{{ inventoryStats.stockTurnoverRate.toFixed(1) }}</h3>
+        <p>Turnover Rate</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Navigation Tabs -->
+  <div class="nav-tabs">
+    <button 
+      class="tab-btn"
+      [class.active]="activeTab === 'overview'"
+      (click)="activeTab = 'overview'"
+    >
+      📊 Overview
+    </button>
+    <button 
+      class="tab-btn"
+      [class.active]="activeTab === 'products'"
+      (click)="activeTab = 'products'"
+    >
+      📦 Products
+    </button>
+    <button 
+      class="tab-btn"
+      [class.active]="activeTab === 'movements'"
+      (click)="activeTab = 'movements'"
+    >
+      🔄 Movements
+    </button>
+    <button 
+      class="tab-btn"
+      [class.active]="activeTab === 'alerts'"
+      (click)="activeTab = 'alerts'"
+    >
+      🚨 Alerts
+    </button>
+    <button 
+      class="tab-btn"
+      [class.active]="activeTab === 'adjustments'"
+      (click)="activeTab = 'adjustments'"
+    >
+      ⚖️ Adjustments
+    </button>
+  </div>
+
+  <!-- Overview Tab -->
+  <div class="tab-content" *ngIf="activeTab === 'overview'">
+    <div class="overview-grid">
+      <!-- Top Products Chart -->
+      <div class="chart-card">
+        <h3>Top Products by Value</h3>
+        <div class="chart-content">
+          <div 
+            *ngFor="let item of inventoryStats?.topProducts"
+            class="chart-item"
+          >
+            <div class="item-info">
+              <span class="item-name">{{ item.product.name }}</span>
+              <span class="item-value">{{ formatCurrency(item.value) }}</span>
+            </div>
+            <div class="progress-bar">
+              <div 
+                class="progress-fill"
+                [style.width.%]="(item.value / (inventoryStats?.topProducts[0]?.value || 1)) * 100"
+              ></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Category Breakdown -->
+      <div class="chart-card">
+        <h3>Category Breakdown</h3>
+        <div class="chart-content">
+          <div 
+            *ngFor="let category of inventoryStats?.categoryBreakdown"
+            class="chart-item"
+          >
+            <div class="item-info">
+              <span class="item-name">{{ category.category }}</span>
+              <span class="item-count">{{ category.count }} products</span>
+            </div>
+            <div class="progress-bar">
+              <div 
+                class="progress-fill"
+                [style.width.%]="(category.value / (inventoryStats?.totalValue || 1)) * 100"
+              ></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Alerts -->
+      <div class="alerts-preview">
+        <h3>Recent Alerts</h3>
+        <div class="alerts-list">
+          <div 
+            *ngFor="let alert of stockAlerts.slice(0, 5)"
+            class="alert-item"
+            [style.border-left-color]="getAlertSeverityColor(alert.severity)"
+          >
+            <div class="alert-header">
+              <span class="alert-type">{{ alert.alertType.replace('_', ' ').toUpperCase() }}</span>
+              <span class="alert-severity" [style.background-color]="getAlertSeverityColor(alert.severity)">
+                {{ alert.severity }}
+              </span>
+            </div>
+            <p class="alert-message">{{ alert.message }}</p>
+            <span class="alert-time">{{ formatDate(alert.timestamp) }}</span>
+          </div>
+        </div>
+        <button class="btn btn-outline" (click)="openAlertsModal()">
+          View All Alerts
+        </button>
+      </div>
+
+      <!-- Recent Movements -->
+      <div class="movements-preview">
+        <h3>Recent Movements</h3>
+        <div class="movements-list">
+          <div 
+            *ngFor="let movement of movements.slice(0, 5)"
+            class="movement-item"
+          >
+            <div class="movement-icon" [style.background-color]="getMovementTypeColor(movement.movementType)">
+              {{ getMovementTypeIcon(movement.movementType) }}
+            </div>
+            <div class="movement-info">
+              <span class="movement-product">{{ movement.productName }}</span>
+              <span class="movement-details">
+                {{ movement.movementType }}: {{ movement.quantity }} units
+              </span>
+            </div>
+            <span class="movement-time">{{ formatDate(movement.timestamp) }}</span>
+          </div>
+        </div>
+        <button class="btn btn-outline" (click)="openMovementsModal()">
+          View All Movements
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Products Tab -->
+  <div class="tab-content" *ngIf="activeTab === 'products'">
+    <div class="products-controls">
+      <div class="search-section">
+        <input
+          type="text"
+          placeholder="Search products..."
+          class="search-input"
+          (input)="onSearchInput($event)"
+        />
+      </div>
+
+      <div class="filters-section">
+        <select class="filter-select" (change)="onCategoryChange($event)">
+          <option value="">All Categories</option>
+          <option *ngFor="let category of getCategories()" [value]="category">
+            {{ category }}
+          </option>
+        </select>
+
+        <select class="filter-select" (change)="onStockStatusChange($event)">
+          <option value="">All Stock Status</option>
+          <option value="in_stock">In Stock</option>
+          <option value="low_stock">Low Stock</option>
+          <option value="out_of_stock">Out of Stock</option>
+          <option value="overstock">Overstocked</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="products-table">
+      <table>
+        <thead>
+          <tr>
+            <th (click)="onSort('name')" class="sortable">
+              Product Name
+              <span class="sort-icon">{{ getSortIcon('name') }}</span>
+            </th>
+            <th (click)="onSort('sku')" class="sortable">
+              SKU
+              <span class="sort-icon">{{ getSortIcon('sku') }}</span>
+            </th>
+            <th (click)="onSort('category')" class="sortable">
+              Category
+              <span class="sort-icon">{{ getSortIcon('category') }}</span>
+            </th>
+            <th (click)="onSort('stock')" class="sortable">
+              Stock Level
+              <span class="sort-icon">{{ getSortIcon('stock') }}</span>
+            </th>
+            <th (click)="onSort('value')" class="sortable">
+              Total Value
+              <span class="sort-icon">{{ getSortIcon('value') }}</span>
+            </th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let product of filteredProducts">
+            <td class="product-cell">
+              <img [src]="getProductImage(product)" [alt]="product.name" class="product-image" />
+              <div class="product-info">
+                <span class="product-name">{{ product.name }}</span>
+                <span class="product-description">{{ product.description }}</span>
+              </div>
+            </td>
+            <td>{{ product.sku }}</td>
+            <td>{{ product.category }}</td>
+            <td>
+              <div class="stock-info">
+                <span class="stock-quantity">{{ product.inventory.quantity }}</span>
+                <span class="min-stock">Min: {{ product.inventory.minStock }}</span>
+              </div>
+            </td>
+            <td>{{ formatCurrency(product.price.selling * product.inventory.quantity) }}</td>
+            <td>
+              <span 
+                class="status-badge"
+                [style.background-color]="getStockStatusColor(product)"
+              >
+                {{ getStockStatusText(product) }}
+              </span>
+            </td>
+            <td>
+              <button 
+                class="btn btn-sm btn-primary"
+                (click)="openAdjustmentModal(product)"
+              >
+                Adjust Stock
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div *ngIf="filteredProducts.length === 0" class="no-products">
+        <p>No products found matching your criteria.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Movements Tab -->
+  <div class="tab-content" *ngIf="activeTab === 'movements'">
+    <div class="movements-header">
+      <h3>Inventory Movements</h3>
+      <button class="btn btn-primary" (click)="openMovementsModal()">
+        View All Movements
+      </button>
+    </div>
+
+    <div class="movements-list">
+      <div 
+        *ngFor="let movement of filteredMovements.slice(0, 20)"
+        class="movement-card"
+      >
+        <div class="movement-header">
+          <div class="movement-type" [style.background-color]="getMovementTypeColor(movement.movementType)">
+            {{ getMovementTypeIcon(movement.movementType) }}
+            <span>{{ movement.movementType.toUpperCase() }}</span>
+          </div>
+          <span class="movement-time">{{ formatDate(movement.timestamp) }}</span>
+        </div>
+
+        <div class="movement-body">
+          <h4>{{ movement.productName }}</h4>
+          <div class="movement-details">
+            <div class="detail-item">
+              <span class="label">Quantity:</span>
+              <span class="value">{{ movement.quantity }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Previous Stock:</span>
+              <span class="value">{{ movement.previousStock }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">New Stock:</span>
+              <span class="value">{{ movement.newStock }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Reference:</span>
+              <span class="value">{{ movement.reference }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">User:</span>
+              <span class="value">{{ movement.user }}</span>
+            </div>
+          </div>
+          <p class="movement-notes" *ngIf="movement.notes">{{ movement.notes }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alerts Tab -->
+  <div class="tab-content" *ngIf="activeTab === 'alerts'">
+    <div class="alerts-header">
+      <h3>Stock Alerts</h3>
+      <button class="btn btn-primary" (click)="openAlertsModal()">
+        View All Alerts
+      </button>
+    </div>
+
+    <div class="alerts-list">
+      <div 
+        *ngFor="let alert of stockAlerts"
+        class="alert-card"
+        [style.border-left-color]="getAlertSeverityColor(alert.severity)"
+      >
+        <div class="alert-header">
+          <div class="alert-type">
+            <span class="type-badge">{{ alert.alertType.replace('_', ' ').toUpperCase() }}</span>
+            <span 
+              class="severity-badge"
+              [style.background-color]="getAlertSeverityColor(alert.severity)"
+            >
+              {{ alert.severity }}
+            </span>
+          </div>
+          <span class="alert-time">{{ formatDate(alert.timestamp) }}</span>
+        </div>
+
+        <div class="alert-body">
+          <h4>{{ alert.productName }}</h4>
+          <p class="alert-message">{{ alert.message }}</p>
+          
+          <div class="alert-details">
+            <div class="detail-item">
+              <span class="label">Current Stock:</span>
+              <span class="value">{{ alert.currentStock }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Threshold:</span>
+              <span class="value">{{ alert.threshold }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Adjustments Tab -->
+  <div class="tab-content" *ngIf="activeTab === 'adjustments'">
+    <div class="adjustments-header">
+      <h3>Stock Adjustments</h3>
+      <p>Select a product from the Products tab to make stock adjustments.</p>
+    </div>
+
+    <div class="adjustments-info">
+      <div class="info-card">
+        <h4>📦 Add Stock</h4>
+        <p>Increase stock levels for new inventory, returns, or corrections.</p>
+      </div>
+      <div class="info-card">
+        <h4>📤 Remove Stock</h4>
+        <p>Decrease stock for damage, loss, or inventory corrections.</p>
+      </div>
+      <div class="info-card">
+        <h4>⚖️ Set Stock</h4>
+        <p>Set exact stock levels for physical inventory counts.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stock Adjustment Modal -->
+  <div class="modal-overlay" *ngIf="showAdjustmentModal" (click)="closeAdjustmentModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Adjust Stock - {{ productToAdjust?.name }}</h3>
+        <button class="close-btn" (click)="closeAdjustmentModal()">×</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="current-stock-info">
+          <h4>Current Stock Level</h4>
+          <div class="stock-display">
+            <span class="stock-number">{{ productToAdjust?.inventory.quantity }}</span>
+            <span class="stock-label">units</span>
+          </div>
+        </div>
+
+        <form [formGroup]="adjustmentForm" class="adjustment-form">
+          <div class="form-group">
+            <label for="adjustmentType">Adjustment Type</label>
+            <select id="adjustmentType" formControlName="adjustmentType" class="form-control">
+              <option value="add">Add Stock</option>
+              <option value="remove">Remove Stock</option>
+              <option value="set">Set Stock Level</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="quantity">Quantity</label>
+            <input
+              id="quantity"
+              type="number"
+              formControlName="quantity"
+              class="form-control"
+              placeholder="0.00"
+              step="0.01"
+              min="0"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="reason">Reason *</label>
+            <input
+              id="reason"
+              type="text"
+              formControlName="reason"
+              class="form-control"
+              placeholder="e.g., Physical count, Damage, Return"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="notes">Notes</label>
+            <textarea
+              id="notes"
+              formControlName="notes"
+              class="form-control"
+              placeholder="Additional details about this adjustment"
+              rows="3"
+            ></textarea>
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeAdjustmentModal()">
+          Cancel
+        </button>
+        <button 
+          class="btn btn-primary"
+          (click)="submitAdjustment()"
+          [disabled]="adjustmentForm.invalid"
+        >
+          Apply Adjustment
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Movements Modal -->
+  <div class="modal-overlay" *ngIf="showMovementsModal" (click)="closeMovementsModal()">
+    <div class="modal-content large" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>All Inventory Movements</h3>
+        <button class="close-btn" (click)="closeMovementsModal()">×</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="movements-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Product</th>
+                <th>Quantity</th>
+                <th>Previous</th>
+                <th>New</th>
+                <th>Reference</th>
+                <th>User</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let movement of filteredMovements">
+                <td>
+                  <span 
+                    class="movement-type-badge"
+                    [style.background-color]="getMovementTypeColor(movement.movementType)"
+                  >
+                    {{ getMovementTypeIcon(movement.movementType) }}
+                    {{ movement.movementType }}
+                  </span>
+                </td>
+                <td>{{ movement.productName }}</td>
+                <td>{{ movement.quantity }}</td>
+                <td>{{ movement.previousStock }}</td>
+                <td>{{ movement.newStock }}</td>
+                <td>{{ movement.reference }}</td>
+                <td>{{ movement.user }}</td>
+                <td>{{ formatDate(movement.timestamp) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-primary" (click)="closeMovementsModal()">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alerts Modal -->
+  <div class="modal-overlay" *ngIf="showAlertsModal" (click)="closeAlertsModal()">
+    <div class="modal-content large" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>All Stock Alerts</h3>
+        <button class="close-btn" (click)="closeAlertsModal()">×</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="alerts-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Severity</th>
+                <th>Type</th>
+                <th>Product</th>
+                <th>Message</th>
+                <th>Current Stock</th>
+                <th>Threshold</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let alert of stockAlerts">
+                <td>
+                  <span 
+                    class="severity-badge"
+                    [style.background-color]="getAlertSeverityColor(alert.severity)"
+                  >
+                    {{ alert.severity }}
+                  </span>
+                </td>
+                <td>{{ alert.alertType.replace('_', ' ').toUpperCase() }}</td>
+                <td>{{ alert.productName }}</td>
+                <td>{{ alert.message }}</td>
+                <td>{{ alert.currentStock }}</td>
+                <td>{{ alert.threshold }}</td>
+                <td>{{ formatDate(alert.timestamp) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-primary" (click)="closeAlertsModal()">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

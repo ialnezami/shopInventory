@@ -62,17 +62,17 @@
   - [x] Sales reports
 
 #### Inventory Management
-- [ ] **Inventory Dashboard**
-  - [ ] Stock level visualization
-  - [ ] Low stock alerts
-  - [ ] Inventory movement tracking
-  - [ ] Stock adjustment interface
+- [x] **Inventory Dashboard**
+  - [x] Stock level visualization
+  - [x] Low stock alerts
+  - [x] Inventory movement tracking
+  - [x] Stock adjustment interface
 
-- [ ] **Inventory Reports**
-  - [ ] Stock level reports
-  - [ ] Inventory valuation
-  - [ ] Stock movement reports
-  - [ ] Export functionality
+- [x] **Inventory Reports**
+  - [x] Stock level reports
+  - [x] Inventory valuation
+  - [x] Stock movement reports
+  - [x] Export functionality
 
 ### 📋 Medium Term Tasks (Next Month)
 
