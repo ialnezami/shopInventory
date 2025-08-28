@@ -27,7 +27,7 @@ describe('ProductsService', () => {
     },
     category: 'Electronics',
     subcategory: 'Smartphones',
-    supplier: '507f1f77bcf86cd799439012',
+    supplier: new Types.ObjectId('507f1f77bcf86cd799439012'),
     variants: [],
     images: [],
     weight: 0.5,
