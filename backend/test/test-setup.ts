@@ -1,7 +1,7 @@
 import { config } from 'dotenv';
 
 // Load environment variables for testing
-config({ path: '.env.test' });
+config({ path: 'test.env' });
 
 // Global test timeout
 jest.setTimeout(30000);
