@@ -6,7 +6,7 @@ import * as path from 'path';
 import { InvoiceDocument } from '../../modules/invoices/schemas/invoice.schema';
 
 export interface EmailOptions {
-  to: string | string[];
+  to: string;
   subject: string;
   html: string;
   attachments?: Array<{
@@ -17,20 +17,50 @@ export interface EmailOptions {
 }
 
 export interface InvoiceEmailData {
-  invoice: InvoiceDocument;
-  customerEmail: string;
   customerName: string;
-  companyName: string;
+  customerEmail: string;
   invoiceNumber: string;
-  total: number;
-  dueDate: Date;
-  pdfPath: string;
+  totalAmount: number;
+  dueDate: string;
+  items: Array<{
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    total: number;
+  }>;
+}
+
+export interface WelcomeEmailData {
+  customerName: string;
+  customerEmail: string;
+  welcomeMessage?: string;
+}
+
+export interface PasswordResetData {
+  customerName: string;
+  customerEmail: string;
+  resetToken: string;
+  resetUrl: string;
+}
+
+export interface OrderConfirmationData {
+  customerName: string;
+  customerEmail: string;
+  orderNumber: string;
+  totalAmount: number;
+  items: Array<{
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    total: number;
+  }>;
 }
 
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private transporter: nodemailer.Transporter;
+  private transporter: nodemailer.Transporter | null = null;
+  private isInitialized = false;
 
   constructor(private configService: ConfigService) {
     this.initializeTransporter();
@@ -38,379 +68,414 @@ export class EmailService {
 
   private async initializeTransporter() {
     try {
+      // Check if email configuration is available
+      const emailHost = this.configService.get('EMAIL_HOST');
+      const emailUser = this.configService.get('EMAIL_USER');
+      const emailPass = this.configService.get('EMAIL_PASS');
+
+      if (!emailHost || !emailUser || !emailPass) {
+        this.logger.warn('⚠️ Email configuration incomplete - email service will be disabled');
+        this.isInitialized = false;
+        return;
+      }
+
       this.transporter = nodemailer.createTransport({
-        host: this.configService.get('email.host'),
-        port: this.configService.get('email.port'),
-        secure: this.configService.get('email.secure'),
+        host: emailHost,
+        port: parseInt(this.configService.get('EMAIL_PORT') || '587', 10),
+        secure: this.configService.get('EMAIL_SECURE') === 'true',
         auth: {
-          user: this.configService.get('email.auth.user'),
-          pass: this.configService.get('email.auth.pass'),
+          user: emailUser,
+          pass: emailPass,
         },
+        // Add connection timeout and retry options
+        connectionTimeout: 10000, // 10 seconds
+        greetingTimeout: 10000,   // 10 seconds
+        socketTimeout: 10000,     // 10 seconds
+        // Retry configuration
+        maxConnections: 5,
+        maxMessages: 100,
+        rateLimit: 14, // 14 messages per second
       });
 
-      // Verify connection configuration
+      // Test the connection
       await this.transporter.verify();
+      this.isInitialized = true;
       this.logger.log('✅ Email transporter initialized successfully');
     } catch (error) {
       this.logger.error('❌ Failed to initialize email transporter:', error.message);
-      // Don't throw error - allow app to continue without email functionality
+      this.isInitialized = false;
+      
+      // Log more details for debugging
+      if (error.code === 'ECONNREFUSED') {
+        this.logger.warn('⚠️ SMTP connection refused - check if SMTP server is running');
+        this.logger.warn('⚠️ You can use services like Gmail, SendGrid, or Mailgun');
+      } else if (error.code === 'EAUTH') {
+        this.logger.warn('⚠️ SMTP authentication failed - check credentials');
+      } else if (error.code === 'ETIMEDOUT') {
+        this.logger.warn('⚠️ SMTP connection timeout - check network/firewall');
+      }
+      
+      this.logger.warn('📧 Email service is disabled - emails will not be sent');
     }
   }
 
-  async sendEmail(emailOptions: EmailOptions): Promise<boolean> {
-    try {
-      if (!this.transporter) {
-        this.logger.warn('⚠️ Email transporter not initialized, skipping email send');
-        return false;
-      }
+  async sendEmail(options: EmailOptions): Promise<boolean> {
+    if (!this.isInitialized || !this.transporter) {
+      this.logger.warn('📧 Email service not initialized - skipping email send');
+      return false;
+    }
 
+    try {
       const mailOptions = {
-        from: this.configService.get('email.from'),
-        replyTo: this.configService.get('email.replyTo'),
-        ...emailOptions,
+        from: this.configService.get('EMAIL_FROM') || 'noreply@shopinventory.com',
+        replyTo: this.configService.get('EMAIL_REPLY_TO') || 'support@shopinventory.com',
+        ...options,
       };
 
-      const result = await this.transporter.sendMail(mailOptions);
-      this.logger.log(`✅ Email sent successfully to ${emailOptions.to}: ${result.messageId}`);
+      await this.transporter.sendMail(mailOptions);
+      this.logger.log(`✅ Email sent successfully to ${options.to}`);
       return true;
     } catch (error) {
-      this.logger.error(`❌ Failed to send email to ${emailOptions.to}:`, error.message);
-      return false;
-    }
-  }
-
-  async sendInvoiceEmail(invoiceData: InvoiceEmailData): Promise<boolean> {
-    try {
-      const { invoice, customerEmail, customerName, companyName, invoiceNumber, total, dueDate, pdfPath } = invoiceData;
-
-      const subject = `Invoice #${invoiceNumber} from ${companyName}`;
-      const html = this.generateInvoiceEmailTemplate(invoiceData);
-
-      const attachments = [];
-      if (pdfPath && fs.existsSync(pdfPath)) {
-        attachments.push({
-          filename: `invoice-${invoiceNumber}.pdf`,
-          path: pdfPath,
-          contentType: 'application/pdf',
-        });
-      }
-
-      const emailOptions: EmailOptions = {
-        to: customerEmail,
-        subject,
-        html,
-        attachments,
-      };
-
-      const success = await this.sendEmail(emailOptions);
+      this.logger.error('❌ Failed to send email:', error.message);
       
-      if (success) {
-        // Update invoice to mark email as sent
-        await this.updateInvoiceEmailStatus(invoice._id, true);
+      // Try to reinitialize transporter on connection errors
+      if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+        this.logger.log('🔄 Attempting to reinitialize email transporter...');
+        await this.initializeTransporter();
       }
-
-      return success;
-    } catch (error) {
-      this.logger.error(`❌ Failed to send invoice email:`, error.message);
+      
       return false;
     }
   }
 
-  async sendWelcomeEmail(customerEmail: string, customerName: string): Promise<boolean> {
-    const subject = `Welcome to ${this.configService.get('email.company.name')}!`;
-    const html = this.generateWelcomeEmailTemplate(customerName);
-
-    const emailOptions: EmailOptions = {
-      to: customerEmail,
-      subject,
+  async sendInvoiceEmail(data: InvoiceEmailData): Promise<boolean> {
+    const html = this.generateInvoiceEmailTemplate(data);
+    return this.sendEmail({
+      to: data.customerEmail,
+      subject: `Invoice #${data.invoiceNumber} - ${this.configService.get('COMPANY_NAME') || 'TechStore Pro'}`,
       html,
-    };
-
-    return this.sendEmail(emailOptions);
+    });
   }
 
-  async sendPasswordResetEmail(userEmail: string, resetToken: string): Promise<boolean> {
-    const subject = 'Password Reset Request';
-    const resetUrl = `${this.configService.get('app.frontendUrl')}/reset-password?token=${resetToken}`;
-    const html = this.generatePasswordResetTemplate(resetUrl);
-
-    const emailOptions: EmailOptions = {
-      to: userEmail,
-      subject,
+  async sendWelcomeEmail(data: WelcomeEmailData): Promise<boolean> {
+    const html = this.generateWelcomeEmailTemplate(data);
+    return this.sendEmail({
+      to: data.customerEmail,
+      subject: `Welcome to ${this.configService.get('COMPANY_NAME') || 'TechStore Pro'}!`,
       html,
-    };
-
-    return this.sendEmail(emailOptions);
+    });
   }
 
-  async sendOrderConfirmationEmail(customerEmail: string, orderData: any): Promise<boolean> {
-    const subject = `Order Confirmation #${orderData.orderNumber}`;
-    const html = this.generateOrderConfirmationTemplate(orderData);
-
-    const emailOptions: EmailOptions = {
-      to: customerEmail,
-      subject,
+  async sendPasswordResetEmail(data: PasswordResetData): Promise<boolean> {
+    const html = this.generatePasswordResetTemplate(data);
+    return this.sendEmail({
+      to: data.customerEmail,
+      subject: `Password Reset Request - ${this.configService.get('COMPANY_NAME') || 'TechStore Pro'}`,
       html,
-    };
-
-    return this.sendEmail(emailOptions);
+    });
   }
 
-  private generateInvoiceEmailTemplate(data: InvoiceEmailData): string {
-    const { customerName, companyName, invoiceNumber, total, dueDate } = data;
-    const formattedTotal = new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(total);
-    
-    const formattedDueDate = new Intl.DateTimeFormat('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    }).format(dueDate);
-
-    return `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Invoice #${invoiceNumber}</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
-          .company-name { font-size: 24px; font-weight: bold; color: #2c3e50; margin-bottom: 10px; }
-          .invoice-details { background: #fff; padding: 20px; border: 1px solid #e9ecef; border-radius: 8px; margin-bottom: 20px; }
-          .amount { font-size: 20px; font-weight: bold; color: #e74c3c; }
-          .due-date { color: #e74c3c; font-weight: bold; }
-          .footer { text-align: center; margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; }
-          .button { display: inline-block; padding: 12px 24px; background: #007bff; color: white; text-decoration: none; border-radius: 6px; margin: 10px 0; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <div class="company-name">${companyName}</div>
-            <div>123 Tech Street, San Francisco, CA 94105</div>
-            <div>Phone: +1-555-TECH | Email: info@techstorepro.com</div>
-            <div>Website: www.techstorepro.com</div>
-          </div>
-
-          <div class="invoice-details">
-            <h2>Invoice #${invoiceNumber}</h2>
-            <p>Dear ${customerName},</p>
-            <p>Thank you for your business! Please find attached your invoice for the recent purchase.</p>
-            
-            <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 6px;">
-              <strong>Invoice Amount:</strong> <span class="amount">${formattedTotal}</span><br>
-              <strong>Due Date:</strong> <span class="due-date">${formattedDueDate}</span>
-            </div>
-
-            <p>Please review the attached invoice for complete details. If you have any questions or need to make payment arrangements, please don't hesitate to contact us.</p>
-          </div>
-
-          <div class="footer">
-            <p>Thank you for choosing ${companyName}!</p>
-            <p>For support, contact us at info@techstorepro.com or call +1-555-TECH</p>
-            <p style="font-size: 12px; color: #6c757d;">
-              This is an automated email. Please do not reply directly to this message.
-            </p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-  }
-
-  private generateWelcomeEmailTemplate(customerName: string): string {
-    const companyName = this.configService.get('email.company.name');
-    const companyWebsite = this.configService.get('email.company.website');
-
-    return `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Welcome to ${companyName}!</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #28a745; color: white; padding: 30px; text-align: center; border-radius: 8px; margin-bottom: 30px; }
-          .welcome-text { font-size: 24px; margin-bottom: 10px; }
-          .content { background: #fff; padding: 20px; border: 1px solid #e9ecef; border-radius: 8px; margin-bottom: 20px; }
-          .button { display: inline-block; padding: 12px 24px; background: #28a745; color: white; text-decoration: none; border-radius: 6px; margin: 10px 0; }
-          .footer { text-align: center; margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <div class="welcome-text">🎉 Welcome to ${companyName}!</div>
-            <p>We're excited to have you as part of our community</p>
-          </div>
-
-          <div class="content">
-            <h2>Hello ${customerName}!</h2>
-            <p>Welcome to ${companyName}! We're thrilled to have you join our community of satisfied customers.</p>
-            
-            <p>As a new customer, you'll enjoy:</p>
-            <ul>
-              <li>Exclusive access to our latest products</li>
-              <li>Special discounts and promotions</li>
-              <li>Priority customer support</li>
-              <li>Loyalty rewards program</li>
-            </ul>
-
-            <p>Ready to start shopping? Visit our website to explore our products!</p>
-            
-            <a href="${companyWebsite}" class="button">Start Shopping</a>
-          </div>
-
-          <div class="footer">
-            <p>Thank you for choosing ${companyName}!</p>
-            <p>If you have any questions, our support team is here to help.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-  }
-
-  private generatePasswordResetTemplate(resetUrl: string): string {
-    const companyName = this.configService.get('email.company.name');
-
-    return `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Password Reset Request</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #dc3545; color: white; padding: 20px; text-align: center; border-radius: 8px; margin-bottom: 30px; }
-          .content { background: #fff; padding: 20px; border: 1px solid #e9ecef; border-radius: 8px; margin-bottom: 20px; }
-          .button { display: inline-block; padding: 12px 24px; background: #dc3545; color: white; text-decoration: none; border-radius: 6px; margin: 10px 0; }
-          .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 6px; margin: 20px 0; }
-          .footer { text-align: center; margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h2>🔐 Password Reset Request</h2>
-            <p>${companyName}</p>
-          </div>
-
-          <div class="content">
-            <h3>Hello!</h3>
-            <p>We received a request to reset your password for your ${companyName} account.</p>
-            
-            <p>Click the button below to reset your password:</p>
-            
-            <a href="${resetUrl}" class="button">Reset Password</a>
-            
-            <div class="warning">
-              <strong>⚠️ Important:</strong>
-              <ul>
-                <li>This link will expire in 1 hour</li>
-                <li>If you didn't request this reset, please ignore this email</li>
-                <li>For security, never share this link with anyone</li>
-              </ul>
-            </div>
-
-            <p>If the button doesn't work, copy and paste this link into your browser:</p>
-            <p style="word-break: break-all; color: #007bff;">${resetUrl}</p>
-          </div>
-
-          <div class="footer">
-            <p>If you have any questions, contact our support team.</p>
-            <p style="font-size: 12px; color: #6c757d;">
-              This is an automated email. Please do not reply directly to this message.
-            </p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-  }
-
-  private generateOrderConfirmationTemplate(orderData: any): string {
-    const companyName = this.configService.get('email.company.name');
-    const formattedTotal = new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(orderData.total);
-
-    return `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Order Confirmation #${orderData.orderNumber}</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #28a745; color: white; padding: 20px; text-align: center; border-radius: 8px; margin-bottom: 30px; }
-          .order-details { background: #fff; padding: 20px; border: 1px solid #e9ecef; border-radius: 8px; margin-bottom: 20px; }
-          .amount { font-size: 20px; font-weight: bold; color: #28a745; }
-          .footer { text-align: center; margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h2>✅ Order Confirmed!</h2>
-            <p>Order #${orderData.orderNumber}</p>
-          </div>
-
-          <div class="order-details">
-            <h3>Thank you for your order!</h3>
-            <p>We're excited to confirm your order and get it ready for you.</p>
-            
-            <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 6px;">
-              <strong>Order Total:</strong> <span class="amount">${formattedTotal}</span><br>
-              <strong>Order Date:</strong> ${new Date().toLocaleDateString()}<br>
-              <strong>Estimated Delivery:</strong> 3-5 business days
-            </div>
-
-            <p>We'll send you updates on your order status and tracking information once it ships.</p>
-          </div>
-
-          <div class="footer">
-            <p>Thank you for choosing ${companyName}!</p>
-            <p>If you have any questions about your order, please contact our support team.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-  }
-
-  private async updateInvoiceEmailStatus(invoiceId: string, isEmailSent: boolean): Promise<void> {
-    try {
-      // This would typically update the invoice in the database
-      // For now, we'll just log it
-      this.logger.log(`📧 Invoice ${invoiceId} email status updated: ${isEmailSent}`);
-    } catch (error) {
-      this.logger.error(`❌ Failed to update invoice email status:`, error.message);
-    }
+  async sendOrderConfirmationEmail(data: OrderConfirmationData): Promise<boolean> {
+    const html = this.generateOrderConfirmationTemplate(data);
+    return this.sendEmail({
+      to: data.customerEmail,
+      subject: `Order Confirmation #${data.orderNumber} - ${this.configService.get('COMPANY_NAME') || 'TechStore Pro'}`,
+      html,
+    });
   }
 
   async testConnection(): Promise<boolean> {
+    if (!this.isInitialized || !this.transporter) {
+      this.logger.warn('📧 Email service not initialized');
+      return false;
+    }
+
     try {
-      if (!this.transporter) {
-        return false;
-      }
       await this.transporter.verify();
+      this.logger.log('✅ Email connection test successful');
       return true;
     } catch (error) {
       this.logger.error('❌ Email connection test failed:', error.message);
       return false;
     }
+  }
+
+  getServiceStatus(): { initialized: boolean; host?: string; port?: number } {
+    return {
+      initialized: this.isInitialized,
+      host: this.configService.get('EMAIL_HOST'),
+      port: parseInt(this.configService.get('EMAIL_PORT') || '587', 10),
+    };
+  }
+
+  private generateInvoiceEmailTemplate(data: InvoiceEmailData): string {
+    const companyName = this.configService.get('COMPANY_NAME') || 'TechStore Pro';
+    const companyAddress = this.configService.get('COMPANY_ADDRESS') || '123 Tech Street, San Francisco, CA 94105';
+    const companyPhone = this.configService.get('COMPANY_PHONE') || '+1-555-TECH';
+    const companyWebsite = this.configService.get('COMPANY_WEBSITE') || 'www.techstorepro.com';
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Invoice #${data.invoiceNumber}</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
+          .company-info { text-align: center; }
+          .invoice-details { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+          .items-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+          .items-table th, .items-table td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+          .items-table th { background: #f8f9fa; font-weight: bold; }
+          .total { text-align: right; font-size: 18px; font-weight: bold; margin-top: 20px; }
+          .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
+          .button { display: inline-block; padding: 12px 24px; background: #007bff; color: white; text-decoration: none; border-radius: 5px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="company-info">
+              <h1>${companyName}</h1>
+              <p>${companyAddress}</p>
+              <p>Phone: ${companyPhone} | Website: ${companyWebsite}</p>
+            </div>
+          </div>
+
+          <div class="invoice-details">
+            <h2>Invoice #${data.invoiceNumber}</h2>
+            <p><strong>Customer:</strong> ${data.customerName}</p>
+            <p><strong>Email:</strong> ${data.customerEmail}</p>
+            <p><strong>Due Date:</strong> ${data.dueDate}</p>
+          </div>
+
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Quantity</th>
+                <th>Unit Price</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.items.map(item => `
+                <tr>
+                  <td>${item.name}</td>
+                  <td>${item.quantity}</td>
+                  <td>$${item.unitPrice.toFixed(2)}</td>
+                  <td>$${item.total.toFixed(2)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="total">
+            <h3>Total Amount: $${data.totalAmount.toFixed(2)}</h3>
+          </div>
+
+          <div class="footer">
+            <p>Thank you for your business!</p>
+            <p>If you have any questions, please contact us at ${companyPhone}</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  private generateWelcomeEmailTemplate(data: WelcomeEmailData): string {
+    const companyName = this.configService.get('COMPANY_NAME') || 'TechStore Pro';
+    const companyWebsite = this.configService.get('COMPANY_WEBSITE') || 'www.techstorepro.com';
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Welcome to ${companyName}!</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #28a745; color: white; padding: 30px; border-radius: 8px; text-align: center; margin-bottom: 30px; }
+          .content { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 30px; margin-bottom: 20px; }
+          .button { display: inline-block; padding: 15px 30px; background: #007bff; color: white; text-decoration: none; border-radius: 5px; font-size: 16px; }
+          .footer { text-align: center; margin-top: 30px; color: #666; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🎉 Welcome to ${companyName}!</h1>
+            <p>We're excited to have you as part of our community</p>
+          </div>
+
+          <div class="content">
+            <h2>Hello ${data.customerName}!</h2>
+            <p>Welcome to ${companyName}! We're thrilled to have you join our community of satisfied customers.</p>
+            
+            <p>Here's what you can expect from us:</p>
+            <ul>
+              <li>🚀 High-quality products and services</li>
+              <li>💎 Exclusive deals and promotions</li>
+              <li>📱 Easy online shopping experience</li>
+              <li>🛡️ Secure and reliable service</li>
+            </ul>
+
+            <p>${data.welcomeMessage || 'We look forward to serving you and providing an exceptional shopping experience!'}</p>
+
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="https://${companyWebsite}" class="button">Start Shopping Now</a>
+            </div>
+
+            <p>If you have any questions or need assistance, don't hesitate to reach out to our customer support team.</p>
+          </div>
+
+          <div class="footer">
+            <p>Thank you for choosing ${companyName}!</p>
+            <p>Visit us at <a href="https://${companyWebsite}">${companyWebsite}</a></p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  private generatePasswordResetTemplate(data: PasswordResetData): string {
+    const companyName = this.configService.get('COMPANY_NAME') || 'TechStore Pro';
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Password Reset Request - ${companyName}</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #dc3545; color: white; padding: 30px; border-radius: 8px; text-align: center; margin-bottom: 30px; }
+          .content { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 30px; margin-bottom: 20px; }
+          .button { display: inline-block; padding: 15px 30px; background: #007bff; color: white; text-decoration: none; border-radius: 5px; font-size: 16px; }
+          .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0; }
+          .footer { text-align: center; margin-top: 30px; color: #666; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🔐 Password Reset Request</h1>
+            <p>${companyName} - Account Security</p>
+          </div>
+
+          <div class="content">
+            <h2>Hello ${data.customerName},</h2>
+            <p>We received a request to reset your password for your ${companyName} account.</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${data.resetUrl}" class="button">Reset My Password</a>
+            </div>
+
+            <div class="warning">
+              <p><strong>⚠️ Important:</strong></p>
+              <ul>
+                <li>This link will expire in 1 hour for security reasons</li>
+                <li>If you didn't request this password reset, please ignore this email</li>
+                <li>Your password will remain unchanged until you complete the reset process</li>
+              </ul>
+            </div>
+
+            <p>If the button above doesn't work, you can copy and paste this link into your browser:</p>
+            <p style="word-break: break-all; color: #007bff;">${data.resetUrl}</p>
+
+            <p>If you have any questions or need assistance, please contact our support team.</p>
+          </div>
+
+          <div class="footer">
+            <p>This is an automated message from ${companyName}</p>
+            <p>Please do not reply to this email</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  private generateOrderConfirmationTemplate(data: OrderConfirmationData): string {
+    const companyName = this.configService.get('COMPANY_NAME') || 'TechStore Pro';
+    const companyPhone = this.configService.get('COMPANY_PHONE') || '+1-555-TECH';
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Order Confirmation #${data.orderNumber} - ${companyName}</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #28a745; color: white; padding: 30px; border-radius: 8px; text-align: center; margin-bottom: 30px; }
+          .order-details { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+          .items-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+          .items-table th, .items-table td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+          .items-table th { background: #f8f9fa; font-weight: bold; }
+          .total { text-align: right; font-size: 18px; font-weight: bold; margin-top: 20px; }
+          .footer { text-align: center; margin-top: 30px; color: #666; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>✅ Order Confirmed!</h1>
+            <p>Thank you for your order, ${data.customerName}!</p>
+          </div>
+
+          <div class="order-details">
+            <h2>Order #${data.orderNumber}</h2>
+            <p><strong>Order Date:</strong> ${new Date().toLocaleDateString()}</p>
+            <p><strong>Customer:</strong> ${data.customerName}</p>
+            <p><strong>Email:</strong> ${data.customerEmail}</p>
+          </div>
+
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Quantity</th>
+                <th>Unit Price</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.items.map(item => `
+                <tr>
+                  <td>${item.name}</td>
+                  <td>${item.quantity}</td>
+                  <td>$${item.unitPrice.toFixed(2)}</td>
+                  <td>$${item.total.toFixed(2)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="total">
+            <h3>Total Amount: $${data.totalAmount.toFixed(2)}</h3>
+          </div>
+
+          <div class="footer">
+            <p>🎉 Your order has been successfully placed!</p>
+            <p>We'll send you updates on your order status via email.</p>
+            <p>If you have any questions, please contact us at ${companyPhone}</p>
+            <p>Thank you for choosing ${companyName}!</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
   }
 }
