@@ -1,0 +1,342 @@
+<div class="pos-container">
+  <!-- Header -->
+  <div class="pos-header">
+    <h1>Point of Sale</h1>
+    <div class="pos-info">
+      <span class="current-time">{{ formatDate(new Date()) }}</span>
+      <span class="cart-summary">
+        Cart: {{ cartItemCount }} items | Total: {{ formatCurrency(cartTotal) }}
+      </span>
+    </div>
+  </div>
+
+  <div class="pos-content">
+    <!-- Left Panel - Product Search and Selection -->
+    <div class="left-panel">
+      <!-- Search Bar -->
+      <div class="search-section">
+        <div class="search-input-wrapper">
+          <input
+            type="text"
+            placeholder="Search products by name, SKU, or category..."
+            class="search-input"
+            (input)="onSearchInput($event)"
+            [formControl]="searchForm.get('searchQuery')"
+          />
+          <i class="search-icon">🔍</i>
+        </div>
+        <div *ngIf="isSearching" class="search-loading">
+          <span class="spinner"></span> Searching...
+        </div>
+      </div>
+
+      <!-- Product Grid -->
+      <div class="products-section">
+        <h3>Products ({{ filteredProducts.length }})</h3>
+        
+        <div class="products-grid" *ngIf="!loadingService.isLoading('products')">
+          <div 
+            *ngFor="let product of filteredProducts"
+            class="product-card"
+            [class.disabled]="!canAddToCart(product)"
+            (click)="canAddToCart(product) && selectProduct(product)"
+          >
+            <div class="product-image">
+              <img [src]="getProductImage(product)" [alt]="product.name" />
+              <div class="stock-badge" [class]="getStockStatusClass(product)">
+                {{ getStockStatusText(product) }}
+              </div>
+            </div>
+            
+            <div class="product-info">
+              <h4 class="product-name">{{ product.name }}</h4>
+              <p class="product-sku">{{ product.sku }}</p>
+              <p class="product-category">{{ product.category }}</p>
+              <div class="product-price">
+                <span class="price">{{ formatCurrency(product.price.selling) }}</span>
+                <span class="stock">Stock: {{ product.inventory.quantity }}</span>
+              </div>
+            </div>
+
+            <div class="product-actions">
+              <button 
+                class="add-to-cart-btn"
+                [disabled]="!canAddToCart(product)"
+                (click)="canAddToCart(product) && addToCart(product)"
+              >
+                <i class="icon">+</i>
+                Add to Cart
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div *ngIf="loadingService.isLoading('products')" class="loading-products">
+          <div class="spinner"></div>
+          <p>Loading products...</p>
+        </div>
+
+        <div *ngIf="!loadingService.isLoading('products') && filteredProducts.length === 0" class="no-products">
+          <p>No products found matching your search.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Panel - Shopping Cart and Payment -->
+    <div class="right-panel">
+      <!-- Shopping Cart -->
+      <div class="cart-section">
+        <div class="cart-header">
+          <h3>Shopping Cart</h3>
+          <button 
+            class="clear-cart-btn"
+            (click)="clearCart()"
+            [disabled]="cartItems.length === 0"
+          >
+            Clear Cart
+          </button>
+        </div>
+
+        <div class="cart-items" *ngIf="cartItems.length > 0">
+          <div 
+            *ngFor="let item of cartItems; let i = index"
+            class="cart-item"
+          >
+            <div class="item-image">
+              <img [src]="getProductImage(item.product)" [alt]="item.product.name" />
+            </div>
+            
+            <div class="item-details">
+              <h4 class="item-name">{{ item.product.name }}</h4>
+              <p class="item-sku">{{ item.product.sku }}</p>
+              <div class="item-price">
+                <span class="unit-price">{{ formatCurrency(item.price) }} each</span>
+                <span class="total-price">{{ formatCurrency(item.total) }}</span>
+              </div>
+            </div>
+
+            <div class="item-quantity">
+              <button 
+                class="qty-btn"
+                (click)="updateQuantity(i, -1)"
+                [disabled]="item.quantity <= 1"
+              >
+                -
+              </button>
+              <span class="qty-display">{{ item.quantity }}</span>
+              <button 
+                class="qty-btn"
+                (click)="updateQuantity(i, 1)"
+                [disabled]="item.quantity >= item.product.inventory.quantity"
+              >
+                +
+              </button>
+            </div>
+
+            <button 
+              class="remove-item-btn"
+              (click)="removeFromCart(i)"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+
+        <div *ngIf="cartItems.length === 0" class="empty-cart">
+          <i class="icon">🛒</i>
+          <p>Your cart is empty</p>
+          <p>Search and add products to get started</p>
+        </div>
+      </div>
+
+      <!-- Cart Summary -->
+      <div class="cart-summary-section" *ngIf="cartItems.length > 0">
+        <div class="summary-row">
+          <span>Subtotal:</span>
+          <span>{{ formatCurrency(cartTotal) }}</span>
+        </div>
+        <div class="summary-row">
+          <span>Tax (8.5%):</span>
+          <span>{{ formatCurrency(cartTotal * 0.085) }}</span>
+        </div>
+        <div class="summary-row total">
+          <span>Total:</span>
+          <span>{{ formatCurrency(cartTotal * 1.085) }}</span>
+        </div>
+      </div>
+
+      <!-- Payment Methods -->
+      <div class="payment-section" *ngIf="cartItems.length > 0">
+        <h3>Payment Method</h3>
+        <div class="payment-methods">
+          <button 
+            *ngFor="let method of paymentMethods"
+            class="payment-method-btn"
+            [class.selected]="selectedPaymentMethod?.id === method.id"
+            [disabled]="!method.enabled"
+            (click)="selectPaymentMethod(method)"
+          >
+            <span class="method-icon">{{ method.icon }}</span>
+            <span class="method-name">{{ method.name }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payment Modal -->
+  <div class="modal-overlay" *ngIf="showPaymentModal" (click)="showPaymentModal = false">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Complete Payment</h3>
+        <button class="close-btn" (click)="showPaymentModal = false">×</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="payment-details">
+          <div class="payment-method-info">
+            <span class="method-icon">{{ selectedPaymentMethod?.icon }}</span>
+            <span class="method-name">{{ selectedPaymentMethod?.name }}</span>
+          </div>
+          
+          <div class="total-amount">
+            <span>Total Amount:</span>
+            <span class="amount">{{ formatCurrency(cartTotal * 1.085) }}</span>
+          </div>
+        </div>
+
+        <form [formGroup]="paymentForm" class="payment-form">
+          <div class="form-group" *ngIf="selectedPaymentMethod?.id === 'cash'">
+            <label for="amount">Amount Received</label>
+            <input
+              id="amount"
+              type="number"
+              formControlName="amount"
+              (input)="onAmountChange($event)"
+              placeholder="0.00"
+              step="0.01"
+              min="0"
+            />
+            <div class="change-amount" *ngIf="paymentForm.get('amount')?.value > cartTotal * 1.085">
+              Change: {{ formatCurrency(paymentForm.get('change')?.value || 0) }}
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="reference">Reference/Transaction ID</label>
+            <input
+              id="reference"
+              type="text"
+              formControlName="reference"
+              placeholder="Optional reference number"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="notes">Notes</label>
+            <textarea
+              id="notes"
+              formControlName="notes"
+              placeholder="Additional notes for this sale"
+              rows="3"
+            ></textarea>
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-footer">
+        <button 
+          class="btn btn-secondary"
+          (click)="showPaymentModal = false"
+        >
+          Cancel
+        </button>
+        <button 
+          class="btn btn-primary"
+          (click)="processPayment()"
+          [disabled]="paymentForm.invalid || loadingService.isLoading('payment')"
+        >
+          <span *ngIf="loadingService.isLoading('payment')" class="spinner"></span>
+          {{ loadingService.isLoading('payment') ? 'Processing...' : 'Complete Sale' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Receipt Modal -->
+  <div class="modal-overlay" *ngIf="showReceiptModal" (click)="closeReceipt()">
+    <div class="modal-content receipt-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Sale Receipt</h3>
+        <button class="close-btn" (click)="closeReceipt()">×</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="receipt-content" *ngIf="currentReceipt">
+          <div class="receipt-header">
+            <h4>Shop Inventory Management</h4>
+            <p>Receipt #{{ currentReceipt.id }}</p>
+            <p>{{ formatDate(currentReceipt.timestamp) }}</p>
+          </div>
+
+          <div class="receipt-items">
+            <div 
+              *ngFor="let item of currentReceipt.items"
+              class="receipt-item"
+            >
+              <span class="item-name">{{ item.product.name }}</span>
+              <span class="item-qty">x{{ item.quantity }}</span>
+              <span class="item-price">{{ formatCurrency(item.total) }}</span>
+            </div>
+          </div>
+
+          <div class="receipt-summary">
+            <div class="summary-row">
+              <span>Subtotal:</span>
+              <span>{{ formatCurrency(currentReceipt.total) }}</span>
+            </div>
+            <div class="summary-row">
+              <span>Tax (8.5%):</span>
+              <span>{{ formatCurrency(currentReceipt.total * 0.085) }}</span>
+            </div>
+            <div class="summary-row total">
+              <span>Total:</span>
+              <span>{{ formatCurrency(currentReceipt.total * 1.085) }}</span>
+            </div>
+            <div class="summary-row" *ngIf="currentReceipt.method === 'cash'">
+              <span>Amount Received:</span>
+              <span>{{ formatCurrency(currentReceipt.amount) }}</span>
+            </div>
+            <div class="summary-row" *ngIf="currentReceipt.method === 'cash'">
+              <span>Change:</span>
+              <span>{{ formatCurrency(currentReceipt.change) }}</span>
+            </div>
+          </div>
+
+          <div class="receipt-footer">
+            <p>Payment Method: {{ currentReceipt.method }}</p>
+            <p *ngIf="currentReceipt.reference">Reference: {{ currentReceipt.reference }}</p>
+            <p *ngIf="currentReceipt.notes">Notes: {{ currentReceipt.notes }}</p>
+            <p class="thank-you">Thank you for your purchase!</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button 
+          class="btn btn-secondary"
+          (click)="printReceipt()"
+        >
+          <i class="icon">🖨️</i>
+          Print Receipt
+        </button>
+        <button 
+          class="btn btn-primary"
+          (click)="closeReceipt()"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
