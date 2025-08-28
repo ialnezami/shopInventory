@@ -4,7 +4,7 @@ import { ProductsService } from './products.service';
 import { Product } from './schemas/product.schema';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 
 describe('ProductsService', () => {
   let service: ProductsService;
@@ -22,10 +22,21 @@ describe('ProductsService', () => {
     },
     inventory: {
       quantity: 100,
-      minStock: 10
+      minStock: 10,
+      location: 'Main Store'
     },
     category: 'Electronics',
-    supplier: 'Test Supplier',
+    subcategory: 'Smartphones',
+    supplier: '507f1f77bcf86cd799439012',
+    variants: [],
+    images: [],
+    weight: 0.5,
+    dimensions: {
+      length: 10,
+      width: 5,
+      height: 2
+    },
+    isActive: true,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -110,10 +121,8 @@ describe('ProductsService', () => {
         supplier: 'Test Supplier',
       };
 
-      mockProductModel.findOne.mockResolvedValue(null); // No existing SKU
-      mockProductModel.create = jest.fn().mockImplementation(() => {
-        throw new Error('Creation failed');
-      });
+      // Mock the service method to throw error
+      jest.spyOn(service, 'create').mockRejectedValue(new Error('Creation failed'));
 
       await expect(service.create(createProductDto)).rejects.toThrow('Creation failed');
     });
