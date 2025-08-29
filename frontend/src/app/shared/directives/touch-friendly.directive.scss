@@ -1,0 +1,400 @@
+// Touch-friendly directive styles
+.touch-friendly {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s ease;
+  
+  // Ensure proper touch target sizing
+  min-width: 44px;
+  min-height: 44px;
+  
+  // Touch-friendly cursor
+  cursor: pointer;
+  
+  // Prevent text selection
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  
+  // Optimize touch actions
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  
+  // Hover effects (disabled by default on touch devices)
+  &:hover:not(.pressed) {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+  
+  // Pressed state
+  &.pressed {
+    transform: translateY(0);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  }
+  
+  // Tap animation
+  &.tap {
+    animation: tap-pulse 0.15s ease-out;
+  }
+  
+  // Long press state
+  &.long-press {
+    transform: scale(0.95);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+  
+  // Swipe animations
+  &.swipe-left {
+    animation: swipe-left 0.3s ease-out;
+  }
+  
+  &.swipe-right {
+    animation: swipe-right 0.3s ease-out;
+  }
+  
+  &.swipe-up {
+    animation: swipe-up 0.3s ease-out;
+  }
+  
+  &.swipe-down {
+    animation: swipe-down 0.3s ease-out;
+  }
+  
+  // Ripple effect
+  .ripple {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    pointer-events: none;
+    transform: scale(0);
+    animation: ripple 0.6s linear;
+  }
+}
+
+// Touch-friendly button variants
+.touch-friendly.btn {
+  border-radius: 8px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  
+  &:active {
+    transform: scale(0.98);
+  }
+  
+  // Primary button
+  &.btn-primary {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    border: none;
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+    
+    &:hover:not(.pressed) {
+      background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+      box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+    }
+    
+    &:active {
+      background: linear-gradient(135deg, #004085 0%, #002752 100%);
+    }
+  }
+  
+  // Secondary button
+  &.btn-secondary {
+    background: linear-gradient(135deg, #6c757d 0%, #545b62 100%);
+    border: none;
+    box-shadow: 0 2px 8px rgba(108, 117, 125, 0.3);
+    
+    &:hover:not(.pressed) {
+      background: linear-gradient(135deg, #545b62 0%, #3d4449 100%);
+      box-shadow: 0 4px 12px rgba(108, 117, 125, 0.4);
+    }
+  }
+  
+  // Success button
+  &.btn-success {
+    background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+    border: none;
+    box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+    
+    &:hover:not(.pressed) {
+      background: linear-gradient(135deg, #1e7e34 0%, #155724 100%);
+      box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+    }
+  }
+  
+  // Danger button
+  &.btn-danger {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    border: none;
+    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+    
+    &:hover:not(.pressed) {
+      background: linear-gradient(135deg, #c82333 0%, #a71e2a 100%);
+      box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
+    }
+  }
+}
+
+// Touch-friendly card variants
+.touch-friendly.card {
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+  transition: all 0.3s ease;
+  
+  &:hover:not(.pressed) {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  }
+  
+  &:active {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  }
+}
+
+// Touch-friendly list item variants
+.touch-friendly.list-group-item {
+  border-radius: 8px;
+  margin-bottom: 4px;
+  transition: all 0.2s ease;
+  
+  &:hover:not(.pressed) {
+    background-color: #f8f9fa;
+    transform: translateX(4px);
+  }
+  
+  &:active {
+    background-color: #e9ecef;
+    transform: translateX(2px);
+  }
+}
+
+// Touch-friendly navigation variants
+.touch-friendly.nav-link {
+  border-radius: 8px;
+  margin: 2px 4px;
+  transition: all 0.2s ease;
+  
+  &:hover:not(.pressed) {
+    background-color: rgba(0, 123, 255, 0.1);
+    transform: translateY(-1px);
+  }
+  
+  &:active {
+    background-color: rgba(0, 123, 255, 0.2);
+  }
+  
+  &.active {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    color: white;
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+  }
+}
+
+// Responsive touch targets
+@media (max-width: 768px) {
+  .touch-friendly {
+    min-width: 48px;  // Larger touch targets on mobile
+    min-height: 48px;
+    
+    // Increase padding for better touch experience
+    padding: 12px;
+    
+    // Larger font size for better readability
+    font-size: 16px;
+    
+    // Optimize for mobile gestures
+    touch-action: pan-x pan-y;
+  }
+  
+  .touch-friendly.btn {
+    padding: 12px 20px;
+    font-size: 16px;
+    border-radius: 10px;
+  }
+  
+  .touch-friendly.card {
+    margin-bottom: 16px;
+    
+    &:hover:not(.pressed) {
+      transform: translateY(-2px); // Smaller movement on mobile
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .touch-friendly {
+    min-width: 52px;  // Even larger touch targets on small mobile
+    min-height: 52px;
+    padding: 14px;
+  }
+  
+  .touch-friendly.btn {
+    padding: 14px 24px;
+    font-size: 18px;
+  }
+}
+
+// Dark mode support
+@media (prefers-color-scheme: dark) {
+  .touch-friendly {
+    &:hover:not(.pressed) {
+      box-shadow: 0 2px 8px rgba(255, 255, 255, 0.1);
+    }
+    
+    &.pressed {
+      box-shadow: 0 1px 4px rgba(255, 255, 255, 0.05);
+    }
+  }
+  
+  .touch-friendly.card {
+    &:hover:not(.pressed) {
+      box-shadow: 0 8px 25px rgba(255, 255, 255, 0.1);
+    }
+  }
+}
+
+// High contrast mode support
+@media (prefers-contrast: high) {
+  .touch-friendly {
+    border: 2px solid currentColor;
+    
+    &:hover:not(.pressed) {
+      border-color: #007bff;
+      background-color: rgba(0, 123, 255, 0.1);
+    }
+  }
+}
+
+// Reduced motion support
+@media (prefers-reduced-motion: reduce) {
+  .touch-friendly {
+    transition: none;
+    
+    &:hover:not(.pressed),
+    &.pressed,
+    &.tap,
+    &.long-press {
+      transform: none;
+    }
+    
+    .ripple {
+      animation: none;
+    }
+  }
+}
+
+// Animations
+@keyframes tap-pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+@keyframes swipe-left {
+  0% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(-10px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes swipe-right {
+  0% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(10px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes swipe-up {
+  0% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes swipe-down {
+  0% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(10px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+// Focus styles for accessibility
+.touch-friendly:focus {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}
+
+.touch-friendly:focus:not(:focus-visible) {
+  outline: none;
+}
+
+// Touch feedback for different states
+.touch-friendly {
+  &.loading {
+    pointer-events: none;
+    opacity: 0.7;
+    
+    &::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 20px;
+      height: 20px;
+      margin: -10px 0 0 -10px;
+      border: 2px solid transparent;
+      border-top: 2px solid currentColor;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+  }
+  
+  &.disabled {
+    pointer-events: none;
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
