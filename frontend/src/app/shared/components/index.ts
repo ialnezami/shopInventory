@@ -18,3 +18,13 @@ export type { PWAInstallPrompt, PWAStatus } from './pwa/pwa.service';
 
 export { TouchFriendlyDirective } from '../directives/touch-friendly.directive';
 export type { TouchFriendlyConfig } from '../directives/touch-friendly.directive';
+
+// Accessibility Components
+export { AccessibilityService } from './accessibility/accessibility.service';
+export type { AccessibilityConfig, AccessibilityStatus } from './accessibility/accessibility.service';
+
+export { ColorContrastService } from './accessibility/color-contrast.service';
+export type { ColorContrastResult, WCAGLevels } from './accessibility/color-contrast.service';
+
+export { AccessibilityDirective } from '../directives/accessibility.directive';
+export type { AccessibilityConfig as AccessibilityDirectiveConfig } from '../directives/accessibility.directive';
