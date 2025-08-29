@@ -56,6 +56,13 @@ import { RouterModule, Router } from '@angular/router';
               Reports
             </a>
           </li>
+          
+          <li class="nav-item">
+            <a class="nav-link" routerLink="/demo" routerLinkActive="active">
+              <i class="fas fa-flask"></i>
+              UI Demo
+            </a>
+          </li>
         </ul>
         
         <hr class="my-4">
